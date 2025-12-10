@@ -12,6 +12,7 @@ const pollingService = require('./services/polling.service');
 const automationService = require('./services/automation.service');
 const displayService = require('./services/display.service');
 const cacheService = require('./services/cache.service');
+const calculationsService = require('./services/calculations.service');
 
 // Routes
 const authRoutes = require('./routes/auth.routes');
@@ -72,10 +73,15 @@ app.use(errorHandler);
 io.on('connection', (socket) => {
   logger.info(`Client connected: ${socket.id}`);
 
-  // Send current data immediately
-  const currentData = cacheService.getLatestData();
-  if (currentData) {
-    socket.emit('deviceUpdate', currentData);
+  // Send current processed data immediately
+  const processedData = cacheService.getProcessedData();
+  if (processedData) {
+    socket.emit('deviceUpdate', processedData);
+  } else {
+    const currentData = cacheService.getLatestData();
+    if (currentData) {
+      socket.emit('deviceUpdate', currentData);
+    }
   }
 
   // Send device status
@@ -100,6 +106,10 @@ async function startServer() {
     // Load persisted data
     logger.info('Loading persisted data...');
     await cacheService.loadPersistedData();
+
+    // Initialize calculations service
+    logger.info('Initializing calculations service...');
+    calculationsService.init();
 
     // Start background services
     logger.info('Starting background services...');

@@ -1,6 +1,7 @@
 const express = require('express');
 const awsService = require('../services/aws.service');
 const cacheService = require('../services/cache.service');
+const calculationsService = require('../services/calculations.service');
 const { transformDeviceData } = require('../utils/deviceMapper');
 const { verifyToken } = require('../middleware/auth.middleware');
 const logger = require('../utils/logger');
@@ -12,26 +13,35 @@ router.use(verifyToken);
 
 /**
  * GET /api/device/current
- * Get current device data
+ * Get current device data with calculations
  */
 router.get('/current', (req, res) => {
   try {
-    const latestData = cacheService.getLatestData();
+    const processedData = cacheService.getProcessedData();
     const deviceStatus = cacheService.getDeviceStatus();
 
-    if (!latestData) {
-      return res.status(404).json({
-        success: false,
-        message: 'No data available'
+    if (!processedData) {
+      // Fallback to raw data if processed not available
+      const latestData = cacheService.getLatestData();
+      if (!latestData) {
+        return res.status(404).json({
+          success: false,
+          message: 'No data available'
+        });
+      }
+
+      const transformedData = transformDeviceData(latestData);
+      return res.json({
+        success: true,
+        data: transformedData,
+        status: deviceStatus
       });
     }
 
-    // Transform device ID
-    const transformedData = transformDeviceData(latestData);
-
+    // Return processed data with calculations
     res.json({
       success: true,
-      data: transformedData,
+      data: processedData,
       status: deviceStatus
     });
   } catch (error) {
@@ -39,6 +49,118 @@ router.get('/current', (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching current data'
+    });
+  }
+});
+
+/**
+ * GET /api/device/airflow
+ * Get current airflow rate setting
+ */
+router.get('/airflow', (req, res) => {
+  try {
+    const airflowRate = calculationsService.getAirflowRate();
+    res.json({
+      success: true,
+      airflowRate,
+      unit: 'm³/h'
+    });
+  } catch (error) {
+    logger.error('Error getting airflow rate:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching airflow rate'
+    });
+  }
+});
+
+/**
+ * PUT /api/device/airflow
+ * Update airflow rate setting
+ */
+router.put('/airflow', (req, res) => {
+  try {
+    const { airflowRate } = req.body;
+
+    if (typeof airflowRate !== 'number' || airflowRate <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid airflow rate. Must be a positive number.'
+      });
+    }
+
+    const updatedRate = calculationsService.setAirflowRate(airflowRate);
+
+    res.json({
+      success: true,
+      airflowRate: updatedRate,
+      unit: 'm³/h'
+    });
+  } catch (error) {
+    logger.error('Error updating airflow rate:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating airflow rate'
+    });
+  }
+});
+
+/**
+ * GET /api/device/accumulated
+ * Get accumulated CO2 and O2 totals
+ */
+router.get('/accumulated', (req, res) => {
+  try {
+    const totals = calculationsService.getAccumulatedTotals();
+    res.json({
+      success: true,
+      ...totals
+    });
+  } catch (error) {
+    logger.error('Error getting accumulated totals:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching accumulated totals'
+    });
+  }
+});
+
+/**
+ * POST /api/device/accumulated/reset
+ * Reset accumulated CO2 and O2 totals
+ */
+router.post('/accumulated/reset', (req, res) => {
+  try {
+    calculationsService.resetAccumulatedTotals();
+    res.json({
+      success: true,
+      message: 'Accumulated totals reset successfully'
+    });
+  } catch (error) {
+    logger.error('Error resetting accumulated totals:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error resetting accumulated totals'
+    });
+  }
+});
+
+/**
+ * GET /api/device/relay-names
+ * Get relay names configuration
+ */
+router.get('/relay-names', (req, res) => {
+  try {
+    const relayNames = calculationsService.getRelayNames();
+    res.json({
+      success: true,
+      relayNames
+    });
+  } catch (error) {
+    logger.error('Error getting relay names:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching relay names'
     });
   }
 });

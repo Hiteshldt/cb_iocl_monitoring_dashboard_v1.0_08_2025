@@ -29,10 +29,18 @@ const SensorDisplay = ({ data }) => {
   const outletSensors = ['d8', 'd9', 'd10', 'd11', 'd12', 'd13', 'd14'];
   const systemInfo = ['d38', 'd39', 'd40'];
 
-  const renderSensorGroup = (title, sensors, color) => (
-    <div className="mb-3">
-      <h3 className={`text-xs font-bold mb-2 uppercase tracking-wider ${color}`}>{title}</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+  const renderSensorGroup = (title, sensors, accentColor) => (
+    <div className="mb-4">
+      <div className={`flex items-center space-x-2 mb-3 pb-2 border-b ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
+        <div className={`w-1 h-4 rounded ${accentColor}`}></div>
+        <h3 className={`text-sm font-semibold uppercase tracking-wide ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>
+          {title}
+        </h3>
+        <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>
+          ({sensors.filter(k => data[k] !== undefined).length} sensors)
+        </span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
         {sensors.map((key) => {
           const config = SENSOR_LABELS[key];
           const value = data[key];
@@ -44,38 +52,37 @@ const SensorDisplay = ({ data }) => {
           return (
             <div
               key={key}
-              className={`rounded p-2.5 border transition ${
+              className={`rounded border transition ${
                 isDark
-                  ? 'bg-slate-800 border-slate-700 hover:border-slate-600'
-                  : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                  ? 'bg-slate-800/80 border-slate-700 hover:border-slate-500'
+                  : 'bg-white border-gray-200 hover:border-gray-400 shadow-sm'
               }`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className={`p-1.5 rounded ${
-                    title.includes('Inlet') ? (isDark ? 'bg-blue-900/50' : 'bg-blue-100') :
-                    title.includes('Outlet') ? (isDark ? 'bg-green-900/50' : 'bg-green-100') :
-                    (isDark ? 'bg-slate-700/50' : 'bg-gray-100')
-                  }`}>
-                    <Icon className={`w-3.5 h-3.5 ${
-                      title.includes('Inlet') ? (isDark ? 'text-blue-400' : 'text-blue-600') :
-                      title.includes('Outlet') ? (isDark ? 'text-green-400' : 'text-green-600') :
-                      (isDark ? 'text-slate-400' : 'text-gray-600')
-                    }`} />
-                  </div>
-                  <div>
-                    <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>{config.label}</p>
-                    <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>{key}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              {/* Header with ID */}
+              <div className={`px-3 py-1.5 border-b flex items-center justify-between ${
+                isDark ? 'bg-slate-700/50 border-slate-700' : 'bg-gray-50 border-gray-200'
+              }`}>
+                <span className={`text-xs font-mono font-medium ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
+                  {key.toUpperCase()}
+                </span>
+                <Icon className={`w-3.5 h-3.5 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
+              </div>
+
+              {/* Value */}
+              <div className="px-3 py-2">
+                <div className="flex items-baseline space-x-1">
+                  <span className={`text-xl font-bold tabular-nums ${isDark ? 'text-white' : 'text-gray-900'}`}>
                     {typeof value === 'number' ? value.toFixed(1) : value}
-                  </p>
+                  </span>
                   {config.unit && (
-                    <p className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{config.unit}</p>
+                    <span className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                      {config.unit}
+                    </span>
                   )}
                 </div>
+                <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>
+                  {config.label}
+                </p>
               </div>
             </div>
           );
@@ -85,14 +92,20 @@ const SensorDisplay = ({ data }) => {
   );
 
   return (
-    <div className={`rounded-lg p-4 border shadow-sm ${isDark ? 'bg-slate-850 border-slate-700' : 'bg-white border-gray-200'}`}>
-      <h2 className={`text-sm font-bold mb-3 uppercase tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>
-        Sensor Readings
-      </h2>
+    <div className={`rounded-lg border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+      {/* Header */}
+      <div className={`px-4 py-3 border-b ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
+        <h2 className={`text-base font-bold uppercase tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Sensor Readings
+        </h2>
+      </div>
 
-      {renderSensorGroup('Inlet Sensors', inletSensors, isDark ? 'text-blue-400' : 'text-blue-700')}
-      {renderSensorGroup('Outlet Sensors', outletSensors, isDark ? 'text-green-400' : 'text-green-700')}
-      {renderSensorGroup('System Information', systemInfo, isDark ? 'text-slate-400' : 'text-gray-700')}
+      {/* Content */}
+      <div className="p-4">
+        {renderSensorGroup('Inlet Sensors', inletSensors, 'bg-blue-500')}
+        {renderSensorGroup('Outlet Sensors', outletSensors, 'bg-green-500')}
+        {renderSensorGroup('System Information', systemInfo, 'bg-slate-500')}
+      </div>
     </div>
   );
 };

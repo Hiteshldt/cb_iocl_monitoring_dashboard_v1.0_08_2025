@@ -1,5 +1,6 @@
 const awsService = require('./aws.service');
 const cacheService = require('./cache.service');
+const calculationsService = require('./calculations.service');
 const logger = require('../utils/logger');
 const { DATA_POLL_INTERVAL } = require('../config/constants');
 
@@ -52,16 +53,23 @@ class PollingService {
     try {
       logger.debug('Polling data from AWS...');
 
+      // Wait for calculations service to be initialized
+      await calculationsService.waitForInit();
+
       // Fetch latest data
       const latestData = await awsService.getLatestData();
 
       if (latestData) {
-        // Update cache
+        // Process data with calculations (AQI, CO2, O2)
+        const processedData = calculationsService.processData(latestData);
+
+        // Update cache with both raw and processed data
         cacheService.updateLatestData(latestData);
+        cacheService.updateProcessedData(processedData);
 
         // Emit to connected clients (if Socket.IO is available)
         if (global.io) {
-          global.io.emit('deviceUpdate', latestData);
+          global.io.emit('deviceUpdate', processedData);
         }
 
         // Reset error counter on success

@@ -4,6 +4,7 @@ const fileStorage = require('../utils/fileStorage');
 class CacheService {
   constructor() {
     this.latestData = null;
+    this.processedData = null;
     this.lastUpdate = null;
     this.isOnline = false;
   }
@@ -26,10 +27,25 @@ class CacheService {
   }
 
   /**
+   * Update processed data (with calculations)
+   */
+  updateProcessedData(data) {
+    this.processedData = data;
+    logger.debug('Cache updated with processed data');
+  }
+
+  /**
    * Get cached data
    */
   getLatestData() {
     return this.latestData;
+  }
+
+  /**
+   * Get processed data (with calculations)
+   */
+  getProcessedData() {
+    return this.processedData;
   }
 
   /**

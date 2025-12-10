@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { deviceAPI, relayAPI } from '../services/api';
+import { deviceAPI } from '../services/api';
 import { initSocket, disconnectSocket } from '../services/socket';
-import { LogOut, Activity, Signal, Clock, Moon, Sun } from 'lucide-react';
+import { LogOut, Signal, Clock, Moon, Sun, LayoutDashboard, Activity, Power } from 'lucide-react';
+import OverviewDashboard from '../components/OverviewDashboard';
 import SensorDisplay from '../components/SensorDisplay';
 import RelayControl from '../components/RelayControl';
 
@@ -15,15 +16,16 @@ const DashboardPage = () => {
 
   const [deviceData, setDeviceData] = useState(null);
   const [deviceStatus, setDeviceStatus] = useState({ online: false });
+  const [relayNames, setRelayNames] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
-    // Fetch initial data
     fetchDeviceData();
+    fetchRelayNames();
 
-    // Initialize Socket.IO
     const socket = initSocket();
 
     socket.on('deviceUpdate', (data) => {
@@ -36,7 +38,6 @@ const DashboardPage = () => {
       setDeviceStatus(status);
     });
 
-    // Cleanup on unmount
     return () => {
       disconnectSocket();
     };
@@ -62,10 +63,35 @@ const DashboardPage = () => {
     }
   };
 
+  const fetchRelayNames = async () => {
+    try {
+      const res = await deviceAPI.getRelayNames();
+      if (res.data.success) {
+        setRelayNames(res.data.relayNames);
+      }
+    } catch (err) {
+      console.error('Failed to fetch relay names:', err);
+    }
+  };
+
+  const handleAirflowUpdate = async (rate) => {
+    try {
+      await deviceAPI.updateAirflow(rate);
+    } catch (err) {
+      alert('Failed to update airflow rate');
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
+
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+    { id: 'sensors', label: 'Sensors', icon: Activity },
+    { id: 'relays', label: 'Relay Control', icon: Power },
+  ];
 
   if (loading) {
     return (
@@ -95,6 +121,9 @@ const DashboardPage = () => {
     );
   }
 
+  // Extract sensor data for SensorDisplay
+  const sensorData = deviceData?.sensors || deviceData;
+
   return (
     <div className={`min-h-screen ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
       {/* Header */}
@@ -113,25 +142,17 @@ const DashboardPage = () => {
             <div className="flex items-center space-x-2">
               {/* Device Status */}
               <div className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded border ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-gray-100 border-gray-200'}`}>
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    deviceStatus.online ? 'bg-green-500' : 'bg-red-500'
-                  }`}
-                ></div>
-                <span
-                  className={`text-xs font-semibold ${
-                    deviceStatus.online ? (isDark ? 'text-green-400' : 'text-green-700') : (isDark ? 'text-red-400' : 'text-red-700')
-                  }`}
-                >
+                <div className={`w-2 h-2 rounded-full ${deviceStatus.online ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className={`text-xs font-semibold ${deviceStatus.online ? (isDark ? 'text-green-400' : 'text-green-700') : (isDark ? 'text-red-400' : 'text-red-700')}`}>
                   {deviceStatus.online ? 'ONLINE' : 'OFFLINE'}
                 </span>
               </div>
 
               {/* GSM Signal */}
-              {deviceData.d38 && (
+              {sensorData?.d38 && (
                 <div className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded border ${isDark ? 'bg-slate-700/50 border-slate-600 text-slate-300' : 'bg-gray-100 border-gray-200 text-gray-700'}`}>
                   <Signal className="w-3.5 h-3.5" />
-                  <span className="text-xs font-medium">{deviceData.d38}</span>
+                  <span className="text-xs font-medium">{sensorData.d38}</span>
                 </div>
               )}
 
@@ -139,9 +160,7 @@ const DashboardPage = () => {
               {lastUpdate && (
                 <div className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded border ${isDark ? 'bg-slate-700/50 border-slate-600 text-slate-300' : 'bg-gray-100 border-gray-200 text-gray-700'}`}>
                   <Clock className="w-3.5 h-3.5" />
-                  <span className="text-xs font-medium">
-                    {lastUpdate.toLocaleTimeString()}
-                  </span>
+                  <span className="text-xs font-medium">{lastUpdate.toLocaleTimeString()}</span>
                 </div>
               )}
 
@@ -167,19 +186,49 @@ const DashboardPage = () => {
         </div>
       </header>
 
+      {/* Tab Navigation */}
+      <div className={`border-b ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-gray-200'}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="flex space-x-1">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 transition ${
+                    isActive
+                      ? (isDark ? 'border-blue-500 text-blue-400' : 'border-blue-600 text-blue-600')
+                      : (isDark ? 'border-transparent text-slate-400 hover:text-slate-300' : 'border-transparent text-gray-500 hover:text-gray-700')
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Sensor Data - Takes 2 columns */}
-          <div className="lg:col-span-2">
-            <SensorDisplay data={deviceData} />
-          </div>
+        {activeTab === 'overview' && (
+          <OverviewDashboard
+            data={deviceData}
+            relayNames={relayNames}
+            onAirflowUpdate={handleAirflowUpdate}
+          />
+        )}
 
-          {/* Relay Control - Takes 1 column */}
-          <div>
-            <RelayControl data={deviceData} />
-          </div>
-        </div>
+        {activeTab === 'sensors' && (
+          <SensorDisplay data={sensorData} />
+        )}
+
+        {activeTab === 'relays' && (
+          <RelayControl data={sensorData} relayNames={relayNames} />
+        )}
       </main>
     </div>
   );

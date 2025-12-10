@@ -1,0 +1,390 @@
+/**
+ * Calculations Service
+ * Handles AQI, CO2 absorption, and O2 generation calculations
+ * Uses formulas from config/formulas.config.js
+ */
+
+const fs = require('fs');
+const path = require('path');
+const formulas = require('../config/formulas.config');
+const fileStorage = require('../utils/fileStorage');
+
+class CalculationsService {
+  constructor() {
+    this.accumulatedData = {
+      co2AbsorbedGrams: 0,
+      o2GeneratedLiters: 0,
+      lastCalculationTime: null,
+      airflowRate: formulas.airflow.defaultRate,
+      history: [] // Store last 24 hours of calculations
+    };
+
+    this.isInitialized = false;
+    this.initPromise = this.loadAccumulatedData();
+  }
+
+  /**
+   * Wait for initialization to complete
+   */
+  async waitForInit() {
+    if (!this.isInitialized) {
+      await this.initPromise;
+    }
+  }
+
+  /**
+   * Load accumulated data from file storage
+   */
+  async loadAccumulatedData() {
+    try {
+      const data = await fileStorage.read('accumulated-data.json');
+      if (data) {
+        // Handle migration from old format (o2GeneratedGrams) to new format (o2GeneratedLiters)
+        let o2Liters = data.o2GeneratedLiters || 0;
+        if (data.o2GeneratedGrams && !data.o2GeneratedLiters) {
+          // Convert old grams to liters
+          o2Liters = data.o2GeneratedGrams * formulas.o2.gramsToLiters;
+        }
+
+        this.accumulatedData = {
+          ...this.accumulatedData,
+          co2AbsorbedGrams: data.co2AbsorbedGrams || 0,
+          o2GeneratedLiters: o2Liters,
+          airflowRate: data.airflowRate || formulas.airflow.defaultRate,
+          history: data.history || [],
+          lastCalculationTime: data.lastCalculationTime ? new Date(data.lastCalculationTime) : null
+        };
+        this.isInitialized = true;
+        console.log('[Calculations] Loaded accumulated data:', {
+          co2: this.accumulatedData.co2AbsorbedGrams.toFixed(2) + ' g',
+          o2: this.accumulatedData.o2GeneratedLiters.toFixed(4) + ' L'
+        });
+      } else {
+        this.isInitialized = true;
+      }
+    } catch (err) {
+      console.log('[Calculations] No previous accumulated data found, starting fresh');
+      this.isInitialized = true;
+    }
+  }
+
+  /**
+   * Save accumulated data to file storage
+   */
+  async saveAccumulatedData() {
+    try {
+      await fileStorage.write('accumulated-data.json', {
+        ...this.accumulatedData,
+        lastSaved: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error('[Calculations] Failed to save accumulated data:', err);
+    }
+  }
+
+  /**
+   * Calculate AQI sub-index using breakpoints
+   */
+  calculateSubIndex(value, breakpoints) {
+    for (const bp of breakpoints) {
+      if (value >= bp.low && value <= bp.high) {
+        // Linear interpolation within the breakpoint range
+        const range = bp.high - bp.low;
+        const aqiRange = bp.aqiHigh - bp.aqiLow;
+        const position = (value - bp.low) / range;
+        return bp.aqiLow + (position * aqiRange);
+      }
+    }
+    // If above all breakpoints, return max AQI
+    return breakpoints[breakpoints.length - 1].aqiHigh;
+  }
+
+  /**
+   * Calculate temperature sub-index based on comfort range
+   */
+  calculateTemperatureSubIndex(temp) {
+    const config = formulas.aqi.temperature;
+    if (temp >= config.optimalLow && temp <= config.optimalHigh) {
+      return 0; // Optimal range
+    }
+
+    let deviation;
+    if (temp < config.optimalLow) {
+      deviation = config.optimalLow - temp;
+    } else {
+      deviation = temp - config.optimalHigh;
+    }
+
+    // Linear scale based on deviation
+    const normalized = Math.min(deviation / config.maxDeviation, 1);
+    return normalized * config.maxSubIndex;
+  }
+
+  /**
+   * Calculate humidity sub-index based on comfort range
+   */
+  calculateHumiditySubIndex(humidity) {
+    const config = formulas.aqi.humidity;
+    if (humidity >= config.optimalLow && humidity <= config.optimalHigh) {
+      return 0; // Optimal range
+    }
+
+    let deviation;
+    if (humidity < config.optimalLow) {
+      deviation = config.optimalLow - humidity;
+    } else {
+      deviation = humidity - config.optimalHigh;
+    }
+
+    // Linear scale based on deviation
+    const normalized = Math.min(deviation / config.maxDeviation, 1);
+    return normalized * config.maxSubIndex;
+  }
+
+  /**
+   * Calculate AQI from sensor data
+   * @param {Object} data - Sensor data with d1 (CO2), d2 (PM), d3 (Temp), d4 (Humidity)
+   * @returns {Object} - AQI value and category
+   */
+  calculateAQI(data) {
+    const weights = formulas.aqi.weights;
+
+    // Get inlet sensor values
+    const co2 = data.d1 || 0;      // Inlet CO2 (ppm)
+    const pm = data.d2 || 0;       // Inlet Dust PM (µg/m³)
+    const temp = data.d3 || 25;    // Inlet Temperature (°C)
+    const humidity = data.d4 || 50; // Inlet Humidity (%)
+
+    // Calculate sub-indices
+    const co2SubIndex = this.calculateSubIndex(co2, formulas.aqi.co2Breakpoints);
+    const pmSubIndex = this.calculateSubIndex(pm, formulas.aqi.pmBreakpoints);
+    const tempSubIndex = this.calculateTemperatureSubIndex(temp);
+    const humiditySubIndex = this.calculateHumiditySubIndex(humidity);
+
+    // Calculate weighted AQI
+    const aqi = Math.round(
+      (weights.co2 * co2SubIndex) +
+      (weights.pm * pmSubIndex) +
+      (weights.temperature * tempSubIndex) +
+      (weights.humidity * humiditySubIndex)
+    );
+
+    // Determine category
+    let category, color;
+    if (aqi <= 50) {
+      category = 'Good';
+      color = 'green';
+    } else if (aqi <= 100) {
+      category = 'Moderate';
+      color = 'yellow';
+    } else if (aqi <= 150) {
+      category = 'Unhealthy for Sensitive';
+      color = 'orange';
+    } else if (aqi <= 200) {
+      category = 'Unhealthy';
+      color = 'red';
+    } else if (aqi <= 300) {
+      category = 'Very Unhealthy';
+      color = 'purple';
+    } else {
+      category = 'Hazardous';
+      color = 'maroon';
+    }
+
+    return {
+      value: Math.min(aqi, 500),
+      category,
+      color,
+      subIndices: {
+        co2: Math.round(co2SubIndex),
+        pm: Math.round(pmSubIndex),
+        temperature: Math.round(tempSubIndex),
+        humidity: Math.round(humiditySubIndex)
+      }
+    };
+  }
+
+  /**
+   * Calculate CO2 absorbed and O2 generated
+   * @param {Object} data - Sensor data with inlet (d1) and outlet (d8) CO2
+   * @returns {Object} - CO2 absorbed (grams) and O2 generated (liters) in this interval
+   */
+  calculateGasExchange(data) {
+    const now = new Date();
+    const inletCO2 = data.d1 || 0;  // Inlet CO2 (ppm)
+    const outletCO2 = data.d8 || 0; // Outlet CO2 (ppm)
+
+    // CO2 difference (ppm)
+    const co2Diff = Math.max(0, inletCO2 - outletCO2);
+
+    // Skip if difference is below noise threshold
+    if (co2Diff < formulas.co2.minimumDifference) {
+      return {
+        intervalCO2Grams: 0,
+        intervalO2Liters: 0,
+        totalCO2Grams: this.accumulatedData.co2AbsorbedGrams,
+        totalO2Liters: this.accumulatedData.o2GeneratedLiters
+      };
+    }
+
+    // Calculate time interval in hours
+    let timeIntervalHours = formulas.co2.calculationInterval / 3600; // Default to config interval
+
+    if (this.accumulatedData.lastCalculationTime) {
+      const elapsedMs = now - this.accumulatedData.lastCalculationTime;
+      timeIntervalHours = elapsedMs / (1000 * 3600);
+
+      // Cap at reasonable maximum (5 minutes) to handle restarts
+      timeIntervalHours = Math.min(timeIntervalHours, 5 / 60);
+    }
+
+    // CO2 absorbed (grams) = ppm_diff * airflow(m³/h) * time(h) * conversionFactor
+    const co2AbsorbedGrams = co2Diff * this.accumulatedData.airflowRate *
+      timeIntervalHours * formulas.co2.conversionFactor;
+
+    // O2 generated (grams) = CO2_absorbed * O2_conversion_factor
+    const o2GeneratedGrams = co2AbsorbedGrams * formulas.o2.conversionFactor;
+
+    // Convert O2 grams to liters
+    const o2GeneratedLiters = o2GeneratedGrams * formulas.o2.gramsToLiters;
+
+    // Update accumulated totals
+    this.accumulatedData.co2AbsorbedGrams += co2AbsorbedGrams;
+    this.accumulatedData.o2GeneratedLiters += o2GeneratedLiters;
+    this.accumulatedData.lastCalculationTime = now;
+
+    // Add to history (keep last 24 hours at 30-second intervals = 2880 entries)
+    this.accumulatedData.history.push({
+      timestamp: now.toISOString(),
+      co2Diff,
+      co2Grams: co2AbsorbedGrams,
+      o2Liters: o2GeneratedLiters
+    });
+
+    // Trim history to last 24 hours
+    if (this.accumulatedData.history.length > 2880) {
+      this.accumulatedData.history = this.accumulatedData.history.slice(-2880);
+    }
+
+    // Save periodically (every minute handled by interval in init)
+    return {
+      intervalCO2Grams: co2AbsorbedGrams,
+      intervalO2Liters: o2GeneratedLiters,
+      totalCO2Grams: this.accumulatedData.co2AbsorbedGrams,
+      totalO2Liters: this.accumulatedData.o2GeneratedLiters,
+      co2DiffPPM: co2Diff
+    };
+  }
+
+  /**
+   * Get current airflow rate
+   */
+  getAirflowRate() {
+    return this.accumulatedData.airflowRate;
+  }
+
+  /**
+   * Set airflow rate
+   * @param {number} rate - Airflow rate in m³/h
+   */
+  setAirflowRate(rate) {
+    this.accumulatedData.airflowRate = rate;
+    this.saveAccumulatedData();
+    return this.accumulatedData.airflowRate;
+  }
+
+  /**
+   * Get accumulated totals
+   */
+  getAccumulatedTotals() {
+    return {
+      co2AbsorbedGrams: this.accumulatedData.co2AbsorbedGrams,
+      o2GeneratedLiters: this.accumulatedData.o2GeneratedLiters,
+      airflowRate: this.accumulatedData.airflowRate,
+      lastCalculationTime: this.accumulatedData.lastCalculationTime
+    };
+  }
+
+  /**
+   * Reset accumulated totals
+   */
+  resetAccumulatedTotals() {
+    this.accumulatedData.co2AbsorbedGrams = 0;
+    this.accumulatedData.o2GeneratedLiters = 0;
+    this.accumulatedData.history = [];
+    this.saveAccumulatedData();
+    console.log('[Calculations] Accumulated totals reset');
+  }
+
+  /**
+   * Get relay names from config
+   */
+  getRelayNames() {
+    return formulas.relayNames;
+  }
+
+  /**
+   * Process sensor data and return all calculated values
+   * @param {Object} data - Raw sensor data
+   * @returns {Object} - Processed data with all calculations
+   */
+  processData(data) {
+    const aqi = this.calculateAQI(data);
+    const gasExchange = this.calculateGasExchange(data);
+
+    return {
+      // Original sensor data
+      sensors: data,
+
+      // Calculated values
+      calculated: {
+        aqi,
+        temperature: data.d3 || 0,
+        humidity: data.d4 || 0,
+        co2: {
+          inlet: data.d1 || 0,
+          outlet: data.d8 || 0,
+          difference: (data.d1 || 0) - (data.d8 || 0),
+          absorbedGrams: gasExchange.totalCO2Grams,
+          intervalGrams: gasExchange.intervalCO2Grams
+        },
+        o2: {
+          generatedLiters: gasExchange.totalO2Liters,
+          intervalLiters: gasExchange.intervalO2Liters
+        },
+        airflowRate: this.accumulatedData.airflowRate
+      },
+
+      // Relay names
+      relayNames: formulas.relayNames,
+
+      // Relay states
+      relays: {
+        i1: data.i1 || 0,
+        i2: data.i2 || 0,
+        i3: data.i3 || 0,
+        i4: data.i4 || 0,
+        i5: data.i5 || 0,
+        i6: data.i6 || 0,
+        i7: data.i7 || 0,
+        i8: data.i8 || 0,
+        i9: data.i9 || 0,
+        i10: data.i10 || 0
+      }
+    };
+  }
+
+  /**
+   * Initialize periodic save
+   */
+  init() {
+    // Save accumulated data every minute
+    setInterval(() => {
+      this.saveAccumulatedData();
+    }, formulas.persistence.saveInterval);
+
+    console.log('[Calculations] Service initialized');
+  }
+}
+
+module.exports = new CalculationsService();

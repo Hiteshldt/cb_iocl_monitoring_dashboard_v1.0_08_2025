@@ -8,7 +8,9 @@
       "Bash(node_modules/.bin/tailwindcss:*)",
       "Bash(npm uninstall:*)",
       "Bash(netstat:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(npm run dev:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

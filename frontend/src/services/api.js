@@ -45,6 +45,11 @@ export const deviceAPI = {
   getCurrent: () => api.get('/device/current'),
   getStatus: () => api.get('/device/status'),
   getHistory: (period) => api.get(`/device/history/${period}`),
+  getAirflow: () => api.get('/device/airflow'),
+  updateAirflow: (airflowRate) => api.put('/device/airflow', { airflowRate }),
+  getAccumulated: () => api.get('/device/accumulated'),
+  resetAccumulated: () => api.post('/device/accumulated/reset'),
+  getRelayNames: () => api.get('/device/relay-names'),
 };
 
 // Relay API
