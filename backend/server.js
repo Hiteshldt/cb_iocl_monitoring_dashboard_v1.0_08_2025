@@ -121,7 +121,7 @@ async function startServer() {
     await automationService.start();
 
     // Start display update service (every 10 seconds)
-    displayService.start();
+    await displayService.start();
 
     // Start HTTP server
     server.listen(PORT, () => {

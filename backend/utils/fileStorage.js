@@ -81,6 +81,13 @@ const initializeStorage = async () => {
       logger.info('Initialized last-data.json');
     }
 
+    // Initialize display settings
+    const displaySettingsExists = await readJSON('display-settings.json');
+    if (!displaySettingsExists) {
+      await writeJSON('display-settings.json', { enabled: true });
+      logger.info('Initialized display-settings.json');
+    }
+
     logger.info('Storage initialization complete');
   } catch (error) {
     logger.error('Storage initialization failed:', error);

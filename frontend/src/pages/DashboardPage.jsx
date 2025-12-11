@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { deviceAPI } from '../services/api';
 import { initSocket, disconnectSocket } from '../services/socket';
-import { LogOut, Signal, Clock, Moon, Sun, LayoutDashboard, Activity, Power } from 'lucide-react';
+import { LogOut, Signal, Clock, Moon, Sun, LayoutDashboard, Activity, Power, Settings } from 'lucide-react';
 import OverviewDashboard from '../components/OverviewDashboard';
 import SensorDisplay from '../components/SensorDisplay';
 import RelayControl from '../components/RelayControl';
@@ -21,10 +21,14 @@ const DashboardPage = () => {
   const [error, setError] = useState('');
   const [lastUpdate, setLastUpdate] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [displayStatus, setDisplayStatus] = useState(null);
+  const [displayLoading, setDisplayLoading] = useState(false);
+  const [displayError, setDisplayError] = useState('');
 
   useEffect(() => {
     fetchDeviceData();
     fetchRelayNames();
+    fetchDisplayStatus();
 
     const socket = initSocket();
 
@@ -74,6 +78,42 @@ const DashboardPage = () => {
     }
   };
 
+  const fetchDisplayStatus = async () => {
+    try {
+      const res = await deviceAPI.getDisplayStatus();
+      if (res.data.success) {
+        setDisplayStatus({
+          enabled: res.data.enabled,
+          isRunning: res.data.isRunning,
+          updateInterval: res.data.updateInterval
+        });
+      }
+      setDisplayError('');
+    } catch (err) {
+      setDisplayError('Failed to fetch display status');
+    }
+  };
+
+  const toggleDisplay = async () => {
+    if (!displayStatus) return;
+    try {
+      setDisplayLoading(true);
+      const res = await deviceAPI.setDisplayEnabled(!displayStatus.enabled);
+      if (res.data.success) {
+        setDisplayStatus({
+          enabled: res.data.enabled,
+          isRunning: res.data.isRunning,
+          updateInterval: res.data.updateInterval
+        });
+        setDisplayError('');
+      }
+    } catch (err) {
+      setDisplayError('Failed to update display setting');
+    } finally {
+      setDisplayLoading(false);
+    }
+  };
+
   const handleAirflowUpdate = async (rate) => {
     try {
       await deviceAPI.updateAirflow(rate);
@@ -91,6 +131,7 @@ const DashboardPage = () => {
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'sensors', label: 'Sensors', icon: Activity },
     { id: 'relays', label: 'Relay Control', icon: Power },
+    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   if (loading) {
@@ -228,6 +269,46 @@ const DashboardPage = () => {
 
         {activeTab === 'relays' && (
           <RelayControl data={sensorData} relayNames={relayNames} />
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="grid gap-4">
+            <div className={`${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-gray-200'} rounded-lg p-4 shadow-sm`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    Display Updates
+                  </h3>
+                  <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
+                    Send AQI/time data to device every {Math.round((displayStatus?.updateInterval || 0) / 1000)} seconds.
+                  </p>
+                  {displayError && (
+                    <p className="text-xs text-red-500 mt-1">{displayError}</p>
+                  )}
+                </div>
+                <button
+                  onClick={toggleDisplay}
+                  disabled={!displayStatus || displayLoading}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded border transition ${
+                    displayStatus?.enabled
+                      ? 'bg-green-600 text-white border-green-700 hover:bg-green-700'
+                      : isDark
+                        ? 'bg-slate-700 text-slate-200 border-slate-600 hover:bg-slate-600'
+                        : 'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200'
+                  } ${displayLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                >
+                  {displayLoading ? 'Updating...' : displayStatus?.enabled ? 'Disable' : 'Enable'}
+                </button>
+              </div>
+              {displayStatus && (
+                <div className={`mt-3 text-xs ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                  <span className="font-semibold">Status:</span>{' '}
+                  {displayStatus.enabled ? 'Enabled' : 'Disabled'} ·{' '}
+                  {displayStatus.isRunning ? 'Service running' : 'Service stopped'}
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </main>
     </div>

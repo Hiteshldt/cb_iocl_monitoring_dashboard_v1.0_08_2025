@@ -2,6 +2,7 @@ const express = require('express');
 const awsService = require('../services/aws.service');
 const cacheService = require('../services/cache.service');
 const calculationsService = require('../services/calculations.service');
+const displayService = require('../services/display.service');
 const { transformDeviceData } = require('../utils/deviceMapper');
 const { verifyToken } = require('../middleware/auth.middleware');
 const logger = require('../utils/logger');
@@ -182,6 +183,58 @@ router.get('/status', (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching device status'
+    });
+  }
+});
+
+/**
+ * GET /api/device/display
+ * Get display update service status
+ */
+router.get('/display', (req, res) => {
+  try {
+    const status = displayService.getStatus();
+    res.json({
+      success: true,
+      ...status
+    });
+  } catch (error) {
+    logger.error('Error getting display status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching display status'
+    });
+  }
+});
+
+/**
+ * PUT /api/device/display
+ * Enable or disable display updates
+ */
+router.put('/display', async (req, res) => {
+  try {
+    const { enabled } = req.body;
+
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid payload: "enabled" must be a boolean'
+      });
+    }
+
+    const status = enabled
+      ? await displayService.enable()
+      : await displayService.disable();
+
+    res.json({
+      success: true,
+      ...status
+    });
+  } catch (error) {
+    logger.error('Error updating display status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating display status'
     });
   }
 });

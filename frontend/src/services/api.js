@@ -50,6 +50,8 @@ export const deviceAPI = {
   getAccumulated: () => api.get('/device/accumulated'),
   resetAccumulated: () => api.post('/device/accumulated/reset'),
   getRelayNames: () => api.get('/device/relay-names'),
+  getDisplayStatus: () => api.get('/device/display'),
+  setDisplayEnabled: (enabled) => api.put('/device/display', { enabled }),
 };
 
 // Relay API

@@ -1,5 +1,6 @@
 const awsService = require('./aws.service');
 const cacheService = require('./cache.service');
+const fileStorage = require('../utils/fileStorage');
 const logger = require('../utils/logger');
 const { DISPLAY_UPDATE_INTERVAL } = require('../config/constants');
 
@@ -7,12 +8,37 @@ class DisplayService {
   constructor() {
     this.updateInterval = null;
     this.isRunning = false;
+    this.enabled = true;
+    this.stateLoaded = false;
+  }
+
+  async loadState() {
+    if (this.stateLoaded) return;
+
+    const saved = await fileStorage.readJSON('display-settings.json');
+    if (saved && typeof saved.enabled === 'boolean') {
+      this.enabled = saved.enabled;
+    } else {
+      await this.saveState();
+    }
+    this.stateLoaded = true;
+  }
+
+  async saveState() {
+    await fileStorage.writeJSON('display-settings.json', { enabled: this.enabled });
   }
 
   /**
    * Start display update service
    */
-  start() {
+  async start() {
+    await this.loadState();
+
+    if (!this.enabled) {
+      logger.info('Display service is disabled; not starting interval');
+      return;
+    }
+
     if (this.isRunning) {
       logger.warn('Display service already running');
       return;
@@ -48,6 +74,10 @@ class DisplayService {
    */
   async updateDisplay() {
     try {
+      if (!this.enabled) {
+        return;
+      }
+
       const currentData = cacheService.getLatestData();
 
       if (!currentData) {
@@ -92,6 +122,28 @@ class DisplayService {
   }
 
   /**
+   * Enable display updates
+   */
+  async enable() {
+    await this.loadState();
+    this.enabled = true;
+    await this.saveState();
+    await this.start();
+    return this.getStatus();
+  }
+
+  /**
+   * Disable display updates
+   */
+  async disable() {
+    await this.loadState();
+    this.enabled = false;
+    await this.saveState();
+    this.stop();
+    return this.getStatus();
+  }
+
+  /**
    * Calculate AQI from outlet sensor data
    * This is a simplified AQI calculation
    * In production, use proper AQI formula based on pollutant standards
@@ -123,6 +175,7 @@ class DisplayService {
   getStatus() {
     return {
       isRunning: this.isRunning,
+      enabled: this.enabled,
       updateInterval: DISPLAY_UPDATE_INTERVAL
     };
   }
