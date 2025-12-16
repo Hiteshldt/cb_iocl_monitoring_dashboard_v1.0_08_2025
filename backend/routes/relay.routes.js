@@ -1,5 +1,6 @@
 const express = require('express');
 const relayService = require('../services/relay.service');
+const cacheService = require('../services/cache.service');
 const { verifyToken } = require('../middleware/auth.middleware');
 const logger = require('../utils/logger');
 
@@ -27,13 +28,19 @@ router.post('/control', async (req, res) => {
 
     res.json({
       success: true,
-      ...result
+      ...result,
+      deviceStatus: cacheService.getDeviceStatus()
     });
   } catch (error) {
     logger.error('Error controlling relay:', error);
-    res.status(500).json({
+
+    // Return 503 Service Unavailable when device is offline
+    const statusCode = error.code === 'DEVICE_OFFLINE' ? 503 : 500;
+
+    res.status(statusCode).json({
       success: false,
-      message: error.message || 'Error controlling relay'
+      message: error.message || 'Error controlling relay',
+      deviceStatus: cacheService.getDeviceStatus()
     });
   }
 });

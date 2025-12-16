@@ -8,6 +8,7 @@ import { LogOut, Signal, Clock, Moon, Sun, LayoutDashboard, Activity, Power, Set
 import OverviewDashboard from '../components/OverviewDashboard';
 import SensorDisplay from '../components/SensorDisplay';
 import RelayControl from '../components/RelayControl';
+import OfflineBanner from '../components/OfflineBanner';
 
 const DashboardPage = () => {
   const { user, logout } = useAuth();
@@ -15,7 +16,12 @@ const DashboardPage = () => {
   const navigate = useNavigate();
 
   const [deviceData, setDeviceData] = useState(null);
-  const [deviceStatus, setDeviceStatus] = useState({ online: false });
+  const [deviceStatus, setDeviceStatus] = useState({
+    online: false,
+    consecutiveFailures: 0,
+    maxConsecutiveFailures: 3,
+    canControlRelays: false
+  });
   const [relayNames, setRelayNames] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -34,12 +40,31 @@ const DashboardPage = () => {
 
     socket.on('deviceUpdate', (data) => {
       setDeviceData(data);
-      setLastUpdate(new Date());
-      setDeviceStatus({ online: true });
+      // Use device timestamp if available, otherwise server timestamp, fallback to current time
+      const timestamp = data.deviceTimestamp || data.serverTimestamp || new Date().toISOString();
+      setLastUpdate(new Date(timestamp));
+      // When we receive data, the device is definitely online
+      // Update online status but preserve other fields
+      setDeviceStatus(prevStatus => ({
+        ...prevStatus,
+        online: true,
+        hasData: true,
+        consecutiveFailures: 0
+      }));
     });
 
     socket.on('deviceStatus', (status) => {
-      setDeviceStatus(status);
+      // Only update status if we have valid data
+      if (status && typeof status.online === 'boolean') {
+        setDeviceStatus(prevStatus => ({
+          ...prevStatus,
+          ...status
+        }));
+        // Update lastUpdate if status says online and has lastUpdate
+        if (status.online && status.lastUpdate) {
+          setLastUpdate(new Date(status.lastUpdate));
+        }
+      }
     });
 
     return () => {
@@ -56,8 +81,24 @@ const DashboardPage = () => {
 
       if (dataRes.data.success) {
         setDeviceData(dataRes.data.data);
-        setDeviceStatus(dataRes.data.status);
-        setLastUpdate(new Date(dataRes.data.status.lastUpdate));
+        // Merge status data properly
+        if (dataRes.data.status) {
+          setDeviceStatus(prevStatus => ({
+            ...prevStatus,
+            ...dataRes.data.status
+          }));
+        }
+        if (dataRes.data.status?.lastUpdate) {
+          setLastUpdate(new Date(dataRes.data.status.lastUpdate));
+        }
+      }
+
+      // Also use statusRes if available
+      if (statusRes.data.success && statusRes.data) {
+        setDeviceStatus(prevStatus => ({
+          ...prevStatus,
+          ...statusRes.data
+        }));
       }
 
       setLoading(false);
@@ -165,8 +206,22 @@ const DashboardPage = () => {
   // Extract sensor data for SensorDisplay
   const sensorData = deviceData?.sensors || deviceData;
 
+  // Check if device is offline
+  // Only show offline if we have explicitly received offline status (not just default state)
+  // Also don't show offline during initial load
+  const isOffline = !deviceStatus.online && deviceStatus.hasData !== undefined;
+
   return (
     <div className={`min-h-screen ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
+      {/* Offline Banner - shown when device is confirmed offline */}
+      {isOffline && (
+        <OfflineBanner
+          lastUpdate={lastUpdate}
+          consecutiveFailures={deviceStatus.consecutiveFailures}
+          maxFailures={deviceStatus.maxConsecutiveFailures}
+        />
+      )}
+
       {/* Header */}
       <header className={`border-b shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
@@ -183,9 +238,21 @@ const DashboardPage = () => {
             <div className="flex items-center space-x-2">
               {/* Device Status */}
               <div className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded border ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-gray-100 border-gray-200'}`}>
-                <div className={`w-2 h-2 rounded-full ${deviceStatus.online ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                <span className={`text-xs font-semibold ${deviceStatus.online ? (isDark ? 'text-green-400' : 'text-green-700') : (isDark ? 'text-red-400' : 'text-red-700')}`}>
-                  {deviceStatus.online ? 'ONLINE' : 'OFFLINE'}
+                <div className={`w-2 h-2 rounded-full ${
+                  deviceStatus.hasData === undefined
+                    ? 'bg-yellow-500' // Unknown/Loading
+                    : deviceStatus.online
+                      ? 'bg-green-500'
+                      : 'bg-red-500'
+                }`}></div>
+                <span className={`text-xs font-semibold ${
+                  deviceStatus.hasData === undefined
+                    ? (isDark ? 'text-yellow-400' : 'text-yellow-600')
+                    : deviceStatus.online
+                      ? (isDark ? 'text-green-400' : 'text-green-700')
+                      : (isDark ? 'text-red-400' : 'text-red-700')
+                }`}>
+                  {deviceStatus.hasData === undefined ? 'CONNECTING' : deviceStatus.online ? 'ONLINE' : 'OFFLINE'}
                 </span>
               </div>
 
@@ -260,15 +327,16 @@ const DashboardPage = () => {
             data={deviceData}
             relayNames={relayNames}
             onAirflowUpdate={handleAirflowUpdate}
+            deviceStatus={deviceStatus}
           />
         )}
 
         {activeTab === 'sensors' && (
-          <SensorDisplay data={sensorData} />
+          <SensorDisplay data={sensorData} deviceStatus={deviceStatus} />
         )}
 
         {activeTab === 'relays' && (
-          <RelayControl data={sensorData} relayNames={relayNames} />
+          <RelayControl data={sensorData} relayNames={relayNames} deviceStatus={deviceStatus} />
         )}
 
         {activeTab === 'settings' && (

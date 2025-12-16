@@ -1,4 +1,5 @@
 const awsService = require('./aws.service');
+const cacheService = require('./cache.service');
 const fileStorage = require('../utils/fileStorage');
 const logger = require('../utils/logger');
 
@@ -12,6 +13,13 @@ class RelayService {
    */
   async controlRelay(relayId, state) {
     try {
+      // Check if device is online before attempting control
+      if (!cacheService.canControlRelays()) {
+        const error = new Error('Device is offline. Cannot control relay.');
+        error.code = 'DEVICE_OFFLINE';
+        throw error;
+      }
+
       // Validate relay ID
       if (!relayId.match(/^i([1-9]|10)$/)) {
         throw new Error('Invalid relay ID');
@@ -84,6 +92,13 @@ class RelayService {
    */
   async executeMultipleCommands(commands) {
     try {
+      // Check if device is online before attempting control
+      if (!cacheService.canControlRelays()) {
+        const error = new Error('Device is offline. Cannot control relays.');
+        error.code = 'DEVICE_OFFLINE';
+        throw error;
+      }
+
       const commandData = {};
 
       for (const cmd of commands) {

@@ -21,8 +21,14 @@ const SENSOR_LABELS = {
   d40: { label: 'Hardware Version', unit: '', icon: Activity },
 };
 
-const SensorDisplay = ({ data }) => {
+const SensorDisplay = ({ data, deviceStatus = {} }) => {
   const { isDark } = useTheme();
+
+  // Check if device is offline
+  // Only show offline if we have confirmed status (hasData is defined) and device is not online
+  // This prevents flickering during initial load/connecting state
+  const isOffline = deviceStatus?.hasData !== undefined && !deviceStatus?.online;
+
   if (!data) return null;
 
   const inletSensors = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7'];
@@ -92,7 +98,16 @@ const SensorDisplay = ({ data }) => {
   );
 
   return (
-    <div className={`rounded-lg border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+    <div className={`rounded-lg border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-gray-50 border-gray-200'} ${isOffline ? 'opacity-60 grayscale' : ''}`}>
+      {/* Offline indicator */}
+      {isOffline && (
+        <div className={`px-4 py-2 flex items-center justify-center ${isDark ? 'bg-slate-800/80 border-b border-slate-700' : 'bg-gray-100 border-b border-gray-200'}`}>
+          <span className={`text-xs font-semibold ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+            Data may be stale - Device offline
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <div className={`px-4 py-3 border-b ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
         <h2 className={`text-base font-bold uppercase tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>

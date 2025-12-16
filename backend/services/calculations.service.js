@@ -37,7 +37,7 @@ class CalculationsService {
    */
   async loadAccumulatedData() {
     try {
-      const data = await fileStorage.read('accumulated-data.json');
+      const data = await fileStorage.readJSON('accumulated-data.json');
       if (data) {
         // Handle migration from old format (o2GeneratedGrams) to new format (o2GeneratedLiters)
         let o2Liters = data.o2GeneratedLiters || 0;
@@ -73,7 +73,7 @@ class CalculationsService {
    */
   async saveAccumulatedData() {
     try {
-      await fileStorage.write('accumulated-data.json', {
+      await fileStorage.writeJSON('accumulated-data.json', {
         ...this.accumulatedData,
         lastSaved: new Date().toISOString()
       });
@@ -211,14 +211,20 @@ class CalculationsService {
    */
   calculateGasExchange(data) {
     const now = new Date();
-    const inletCO2 = data.d1 || 0;  // Inlet CO2 (ppm)
-    const outletCO2 = data.d8 || 0; // Outlet CO2 (ppm)
+    const inletCO2 = data.d1 || 0;   // Inlet CO2 (ppm)
+    const outletCO2 = data.d8 || 0;  // Outlet CO2 (ppm)
 
-    // CO2 difference (ppm)
+    // CO2 absorption (ppm) = Inlet - Outlet (inlet is higher before absorption)
+    // Clamped to never go negative (can't have negative absorption)
     const co2Diff = Math.max(0, inletCO2 - outletCO2);
 
-    // Skip if difference is below noise threshold
-    if (co2Diff < formulas.co2.minimumDifference) {
+    // Debug logging for CO2 calculation
+    console.log(`[CO2] Inlet: ${inletCO2} ppm, Outlet: ${outletCO2} ppm, Diff: ${co2Diff} ppm`);
+
+    // Skip if difference is zero or below threshold (no absorption happening)
+    if (co2Diff <= formulas.co2.minimumDifference) {
+      // Still update lastCalculationTime to keep timing accurate
+      this.accumulatedData.lastCalculationTime = now;
       return {
         intervalCO2Grams: 0,
         intervalO2Liters: 0,
@@ -253,6 +259,9 @@ class CalculationsService {
     this.accumulatedData.o2GeneratedLiters += o2GeneratedLiters;
     this.accumulatedData.lastCalculationTime = now;
 
+    console.log(`[CO2] Absorbed this interval: ${co2AbsorbedGrams.toFixed(4)} g, Total: ${this.accumulatedData.co2AbsorbedGrams.toFixed(4)} g`);
+    console.log(`[O2] Generated this interval: ${o2GeneratedLiters.toFixed(6)} L, Total: ${this.accumulatedData.o2GeneratedLiters.toFixed(6)} L`);
+
     // Add to history (keep last 24 hours at 30-second intervals = 2880 entries)
     this.accumulatedData.history.push({
       timestamp: now.toISOString(),
@@ -266,7 +275,9 @@ class CalculationsService {
       this.accumulatedData.history = this.accumulatedData.history.slice(-2880);
     }
 
-    // Save periodically (every minute handled by interval in init)
+    // Save immediately when we have absorption (don't wait for periodic save)
+    this.saveAccumulatedData();
+
     return {
       intervalCO2Grams: co2AbsorbedGrams,
       intervalO2Liters: o2GeneratedLiters,
@@ -332,9 +343,25 @@ class CalculationsService {
     const aqi = this.calculateAQI(data);
     const gasExchange = this.calculateGasExchange(data);
 
+    // Parse device timestamp from the data (format: "2025-12-14,15:22:07")
+    let deviceTimestamp = null;
+    if (data.date) {
+      try {
+        // Convert "2025-12-14,15:22:07" to ISO format
+        const [datePart, timePart] = data.date.split(',');
+        deviceTimestamp = new Date(`${datePart}T${timePart}`).toISOString();
+      } catch (e) {
+        deviceTimestamp = new Date().toISOString();
+      }
+    }
+
     return {
       // Original sensor data
       sensors: data,
+
+      // Device timestamp (when device recorded the data)
+      deviceTimestamp,
+      serverTimestamp: new Date().toISOString(),
 
       // Calculated values
       calculated: {
@@ -344,7 +371,7 @@ class CalculationsService {
         co2: {
           inlet: data.d1 || 0,
           outlet: data.d8 || 0,
-          difference: (data.d1 || 0) - (data.d8 || 0),
+          difference: Math.max(0, (data.d1 || 0) - (data.d8 || 0)), // Inlet - Outlet = absorption
           absorbedGrams: gasExchange.totalCO2Grams,
           intervalGrams: gasExchange.intervalCO2Grams
         },
