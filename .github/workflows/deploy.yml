@@ -5,6 +5,11 @@ on:
     branches:
       - production
 
+# Required for OIDC authentication with AWS
+permissions:
+  id-token: write   # Required for requesting the JWT
+  contents: read    # Required for actions/checkout
+
 jobs:
   # ============================================
   # DEPLOY FRONTEND TO S3
@@ -33,20 +38,22 @@ jobs:
         run: npm run build
         env:
           VITE_API_URL: ${{ secrets.BACKEND_URL }}
+          VITE_SOCKET_URL: ${{ secrets.BACKEND_SOCKET_URL }}
 
-      - name: Configure AWS credentials
+      # OIDC Authentication (no access keys needed!)
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Deploy to S3
         working-directory: ./frontend
         run: |
           aws s3 sync dist/ s3://${{ secrets.S3_BUCKET }} --delete
+          echo "✅ Frontend deployed to S3!"
 
-      # Optional: Invalidate CloudFront cache (if using CloudFront)
+      # Optional: Invalidate CloudFront cache (uncomment if using CloudFront)
       # - name: Invalidate CloudFront
       #   run: |
       #     aws cloudfront create-invalidation \
@@ -64,22 +71,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to EC2
+      - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            echo "🚀 Starting backend deployment..."
+
             # Navigate to app directory (create if doesn't exist)
             mkdir -p ~/iocl-app
             cd ~/iocl-app
 
             # Clone or pull latest code
             if [ -d ".git" ]; then
+              echo "📥 Pulling latest changes..."
               git fetch origin production
               git reset --hard origin/production
             else
+              echo "📦 Cloning repository..."
               git clone -b production https://github.com/${{ github.repository }}.git .
             fi
 
@@ -87,17 +98,21 @@ jobs:
             cd backend
 
             # Install dependencies
+            echo "📦 Installing dependencies..."
             npm ci --production
 
-            # Create/update .env file (you can add more env vars as secrets)
-            echo "PORT=${{ secrets.BACKEND_PORT }}" > .env
-            echo "NODE_ENV=production" >> .env
-            # Add more environment variables as needed
-            # echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
+            # Create/update .env file
+            cat > .env << 'ENVEOF'
+            PORT=${{ secrets.BACKEND_PORT }}
+            NODE_ENV=production
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            AWS_REGION=${{ secrets.AWS_REGION }}
+            ENVEOF
 
             # Restart the application with PM2
+            echo "🔄 Restarting application..."
             pm2 delete iocl-backend 2>/dev/null || true
             pm2 start server.js --name iocl-backend
             pm2 save
 
-            echo "Backend deployment complete!"
+            echo "✅ Backend deployment complete!"
