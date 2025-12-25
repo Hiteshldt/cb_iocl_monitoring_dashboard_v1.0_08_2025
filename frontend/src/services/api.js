@@ -52,6 +52,7 @@ export const deviceAPI = {
   getRelayNames: () => api.get('/device/relay-names'),
   getDisplayStatus: () => api.get('/device/display'),
   setDisplayEnabled: (enabled) => api.put('/device/display', { enabled }),
+  getReport: (startDate, endDate) => api.get(`/device/report?startDate=${startDate}&endDate=${endDate}`),
 };
 
 // Relay API

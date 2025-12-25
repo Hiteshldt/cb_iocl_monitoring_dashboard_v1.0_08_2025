@@ -1,0 +1,13 @@
+{
+  "watch": [
+    "server.js",
+    "config",
+    "services",
+    "routes",
+    "middleware",
+    "utils"
+  ],
+  "ignore": [
+    "storage/**"
+  ]
+}

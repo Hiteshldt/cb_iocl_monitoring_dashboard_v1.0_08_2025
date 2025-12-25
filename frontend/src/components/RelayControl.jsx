@@ -60,6 +60,12 @@ const RelayControl = ({ data, relayNames = {}, deviceStatus = {} }) => {
   // Track pending relay changes awaiting confirmation
   const [pendingRelays, setPendingRelays] = useState({}); // { relayId: { targetState, timestamp } }
   const pendingTimeoutsRef = useRef({}); // Store timeout IDs for cleanup
+  const pendingRelaysRef = useRef({}); // Ref to track pending relays for use in useEffect
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    pendingRelaysRef.current = pendingRelays;
+  }, [pendingRelays]);
 
   // Check if device is offline
   const isOffline = deviceStatus?.hasData !== undefined && !deviceStatus?.online;
@@ -76,20 +82,28 @@ const RelayControl = ({ data, relayNames = {}, deviceStatus = {} }) => {
   useEffect(() => {
     if (data) {
       const newRelayStates = {};
+      const confirmedRelays = []; // Track which relays got confirmed
+
       for (let i = 1; i <= 10; i++) {
         const relayId = `i${i}`;
         newRelayStates[relayId] = data[relayId] || 0;
 
         // Check if this relay was pending and now matches the target state
-        if (pendingRelays[relayId]) {
-          const { targetState } = pendingRelays[relayId];
-          if (newRelayStates[relayId] === targetState) {
-            // Relay confirmed! Clear pending state
-            clearPendingRelay(relayId);
+        const pending = pendingRelaysRef.current[relayId];
+        if (pending) {
+          if (newRelayStates[relayId] === pending.targetState) {
+            // Relay confirmed!
+            confirmedRelays.push(relayId);
           }
         }
       }
+
       setRelays(newRelayStates);
+
+      // Clear confirmed relays after state update
+      if (confirmedRelays.length > 0) {
+        confirmedRelays.forEach(relayId => clearPendingRelay(relayId));
+      }
     }
   }, [data]);
 
@@ -427,7 +441,7 @@ const RelayConfigPanel = ({ relayId, currentRule, onSave, onCancel, onDelete, lo
             ))}
           </select>
           <div className="flex space-x-1">
-            <select value={operator} onChange={(e) => setOperator(e.target.value)} className={`${selectClass} w-12`}>
+            <select value={operator} onChange={(e) => setOperator(e.target.value)} className={`${selectClass} w-10 shrink-0`}>
               <option value="<">&lt;</option>
               <option value=">">&gt;</option>
             </select>
@@ -435,8 +449,9 @@ const RelayConfigPanel = ({ relayId, currentRule, onSave, onCancel, onDelete, lo
               type="number"
               value={threshold}
               onChange={(e) => setThreshold(e.target.value)}
-              className={`${selectClass} flex-1`}
+              className={`${selectClass} flex-1 min-w-0`}
               step="0.1"
+              placeholder="Value"
             />
           </div>
         </div>

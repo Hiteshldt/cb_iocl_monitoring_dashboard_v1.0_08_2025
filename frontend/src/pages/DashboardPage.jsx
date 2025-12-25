@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { deviceAPI } from '../services/api';
 import { initSocket, disconnectSocket } from '../services/socket';
-import { LogOut, Signal, Clock, Moon, Sun, LayoutDashboard, Activity, Power, Settings } from 'lucide-react';
+import { LogOut, Signal, Clock, Moon, Sun, LayoutDashboard, Activity, Power, Settings, Download, Loader2, Calendar } from 'lucide-react';
 import OverviewDashboard from '../components/OverviewDashboard';
 import SensorDisplay from '../components/SensorDisplay';
 import RelayControl from '../components/RelayControl';
@@ -30,6 +30,13 @@ const DashboardPage = () => {
   const [displayStatus, setDisplayStatus] = useState(null);
   const [displayLoading, setDisplayLoading] = useState(false);
   const [displayError, setDisplayError] = useState('');
+
+  // Report download state
+  const [reportStartDate, setReportStartDate] = useState('');
+  const [reportEndDate, setReportEndDate] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState('');
+  const [reportSuccess, setReportSuccess] = useState('');
 
   useEffect(() => {
     fetchDeviceData();
@@ -65,6 +72,18 @@ const DashboardPage = () => {
           setLastUpdate(new Date(status.lastUpdate));
         }
       }
+    });
+
+    // Listen for relay confirmation from backend (state verified)
+    socket.on('relayConfirmed', (data) => {
+      console.log('Relay confirmed:', data);
+      // This is handled by RelayControl component via deviceUpdate
+    });
+
+    // Listen for relay failure from backend (max retries exceeded)
+    socket.on('relayFailed', (data) => {
+      console.error('Relay failed:', data);
+      alert(`Failed to change ${data.relay.toUpperCase()}. Device shows ${data.actualState === 1 ? 'ON' : 'OFF'} but wanted ${data.desiredState === 1 ? 'ON' : 'OFF'}.`);
     });
 
     return () => {
@@ -168,11 +187,49 @@ const DashboardPage = () => {
     navigate('/login');
   };
 
+  const handleDownloadReport = async () => {
+    if (!reportStartDate || !reportEndDate) {
+      setReportError('Please select both start and end dates');
+      return;
+    }
+
+    if (new Date(reportStartDate) > new Date(reportEndDate)) {
+      setReportError('Start date must be before end date');
+      return;
+    }
+
+    setReportLoading(true);
+    setReportError('');
+    setReportSuccess('');
+
+    try {
+      const res = await deviceAPI.getReport(reportStartDate, reportEndDate);
+
+      if (res.data.success) {
+        // AWS API returns download link - open it in new tab
+        if (res.data.downloadUrl || res.data.url || res.data.link) {
+          const downloadUrl = res.data.downloadUrl || res.data.url || res.data.link;
+          window.open(downloadUrl, '_blank');
+          setReportSuccess('Report downloaded successfully!');
+        } else {
+          // If API returns data directly, show it
+          setReportSuccess('Report generated! Check your downloads.');
+        }
+      } else {
+        setReportError(res.data.message || 'Failed to generate report');
+      }
+    } catch (err) {
+      setReportError(err.response?.data?.message || 'Failed to generate report. Please try again.');
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'sensors', label: 'Sensors', icon: Activity },
     { id: 'relays', label: 'Relay Control', icon: Power },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'settings', label: 'Additional', icon: Settings },
   ];
 
   if (loading) {
@@ -341,6 +398,97 @@ const DashboardPage = () => {
 
         {activeTab === 'settings' && (
           <div className="grid gap-4">
+            {/* Download Report Card */}
+            <div className={`${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-gray-200'} rounded-lg p-4 shadow-sm`}>
+              <div className="flex items-center space-x-2 mb-3">
+                <Download className={`w-5 h-5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+                <h3 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  Download Report
+                </h3>
+              </div>
+              <p className={`text-xs mb-3 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
+                Download device data as CSV for a specific date range.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <label className={`block text-xs font-medium mb-1 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                    Start Date
+                  </label>
+                  <div className="relative">
+                    <Calendar className={`absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
+                    <input
+                      type="date"
+                      value={reportStartDate}
+                      onChange={(e) => {
+                        setReportStartDate(e.target.value);
+                        setReportError('');
+                        setReportSuccess('');
+                      }}
+                      className={`w-full pl-8 pr-3 py-2 text-sm rounded border ${
+                        isDark
+                          ? 'bg-slate-700 border-slate-600 text-white'
+                          : 'bg-white border-gray-300 text-gray-900'
+                      }`}
+                    />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className={`block text-xs font-medium mb-1 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                    End Date
+                  </label>
+                  <div className="relative">
+                    <Calendar className={`absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
+                    <input
+                      type="date"
+                      value={reportEndDate}
+                      onChange={(e) => {
+                        setReportEndDate(e.target.value);
+                        setReportError('');
+                        setReportSuccess('');
+                      }}
+                      className={`w-full pl-8 pr-3 py-2 text-sm rounded border ${
+                        isDark
+                          ? 'bg-slate-700 border-slate-600 text-white'
+                          : 'bg-white border-gray-300 text-gray-900'
+                      }`}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={handleDownloadReport}
+                    disabled={reportLoading || !reportStartDate || !reportEndDate}
+                    className={`px-4 py-2 text-sm font-semibold rounded flex items-center space-x-2 transition ${
+                      reportLoading || !reportStartDate || !reportEndDate
+                        ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    {reportLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Generating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4" />
+                        <span>Download</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {reportError && (
+                <p className="text-xs text-red-500 mt-2">{reportError}</p>
+              )}
+              {reportSuccess && (
+                <p className="text-xs text-green-500 mt-2">{reportSuccess}</p>
+              )}
+            </div>
+
+            {/* Display Updates Card */}
             <div className={`${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-gray-200'} rounded-lg p-4 shadow-sm`}>
               <div className="flex items-center justify-between">
                 <div>

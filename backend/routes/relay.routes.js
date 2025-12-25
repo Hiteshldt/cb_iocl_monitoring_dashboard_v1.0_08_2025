@@ -47,16 +47,30 @@ router.post('/control', async (req, res) => {
 
 /**
  * GET /api/relay/states
- * Get all relay states
+ * Get all relay states from websocket/cache (source of truth)
  */
-router.get('/states', async (req, res) => {
+router.get('/states', (req, res) => {
   try {
-    const states = await relayService.getAllRelayStates();
+    // Get relay states from cache (websocket data) - this is the source of truth
+    const states = cacheService.getRelayStates();
 
-    res.json({
-      success: true,
-      states
-    });
+    if (states) {
+      res.json({
+        success: true,
+        states,
+        source: 'websocket'
+      });
+    } else {
+      // No websocket data yet - return default states
+      res.json({
+        success: true,
+        states: {
+          i1: 0, i2: 0, i3: 0, i4: 0, i5: 0,
+          i6: 0, i7: 0, i8: 0, i9: 0, i10: 0
+        },
+        source: 'default'
+      });
+    }
   } catch (error) {
     logger.error('Error getting relay states:', error);
     res.status(500).json({

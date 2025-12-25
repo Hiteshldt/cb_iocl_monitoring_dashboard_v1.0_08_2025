@@ -8,7 +8,7 @@ const fileStorage = require('./utils/fileStorage');
 const { errorHandler, notFoundHandler } = require('./middleware/error.middleware');
 
 // Services
-const pollingService = require('./services/polling.service');
+const awsWebSocketService = require('./services/aws-websocket.service');
 const automationService = require('./services/automation.service');
 const displayService = require('./services/display.service');
 const cacheService = require('./services/cache.service');
@@ -57,7 +57,7 @@ app.get('/health', (req, res) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     services: {
-      polling: pollingService.getStatus(),
+      awsWebSocket: awsWebSocketService.getStatus(),
       automation: automationService.getStatus(),
       display: displayService.getStatus(),
       device: cacheService.getDeviceStatus()
@@ -114,8 +114,8 @@ async function startServer() {
     // Start background services
     logger.info('Starting background services...');
 
-    // Start data polling (every 30 seconds)
-    pollingService.start();
+    // Start AWS WebSocket connection for real-time data
+    awsWebSocketService.start();
 
     // Start automation engine
     await automationService.start();
@@ -146,7 +146,7 @@ function shutdown() {
   logger.info('Shutting down gracefully...');
 
   // Stop background services
-  pollingService.stop();
+  awsWebSocketService.stop();
   automationService.stop();
   displayService.stop();
 

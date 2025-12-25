@@ -1,5 +1,6 @@
 const awsService = require('./aws.service');
 const cacheService = require('./cache.service');
+const dataTransformer = require('./data-transformer.service');
 const fileStorage = require('../utils/fileStorage');
 const logger = require('../utils/logger');
 const { DISPLAY_UPDATE_INTERVAL } = require('../config/constants');
@@ -78,44 +79,31 @@ class DisplayService {
         return;
       }
 
+      // Get processed data from cache (already transformed)
+      const processedData = cacheService.getProcessedData();
       const currentData = cacheService.getLatestData();
 
-      if (!currentData) {
+      if (!currentData && !processedData) {
         logger.debug('No data available for display update');
         return;
       }
 
-      // Calculate AQI from outlet data
-      const aqi = this.calculateAQI(currentData);
+      // =====================================================================
+      // Use dataTransformer to get display values
+      // This allows custom configuration of what values go to the LED screen
+      // Edit DISPLAY_TRANSFORMS in data-transformer.service.js to customize
+      // =====================================================================
+      const displayData = dataTransformer.getDisplayValues(processedData || { sensors: currentData });
 
-      // Get temperature and humidity from outlet
-      const temperature = Math.round(currentData.d10 || 0);
-      const humidity = Math.round(currentData.d11 || 0);
-
-      // Get current date/time
-      const now = new Date();
-      const hour = now.getHours();
-      const minute = now.getMinutes();
-      const day = now.getDate();
-      const month = now.getMonth() + 1; // Month is 0-indexed
-      const year = now.getFullYear() % 100; // Get last 2 digits
-
-      // Prepare display command
-      const displayData = {
-        i11: aqi,
-        i12: temperature,
-        i13: humidity,
-        i14: hour,
-        i15: minute,
-        i16: day,
-        i17: month,
-        i18: year
-      };
+      if (!displayData) {
+        logger.debug('Could not generate display values');
+        return;
+      }
 
       // Send command to device
       await awsService.sendCommand(displayData);
 
-      logger.debug(`Display updated: AQI=${aqi}, TEMP=${temperature}, HUM=${humidity}%, ${hour}:${minute} ${day}/${month}/${year}`);
+      logger.debug(`Display updated: AQI=${displayData.i11}, TEMP=${displayData.i12}, HUM=${displayData.i13}%, ${displayData.i14}:${displayData.i15} ${displayData.i16}/${displayData.i17}/${displayData.i18}`);
     } catch (error) {
       logger.error('Error updating display:', error.message);
     }

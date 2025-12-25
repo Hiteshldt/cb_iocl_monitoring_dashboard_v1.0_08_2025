@@ -7,6 +7,7 @@ module.exports = {
 
   // AWS
   AWS_API_BASE_URL: process.env.AWS_API_BASE_URL,
+  AWS_WEBSOCKET_URL: process.env.AWS_WEBSOCKET_URL || 'wss://ztw46d04q3.execute-api.us-east-1.amazonaws.com/production',
 
   // Device
   ACTUAL_DEVICE_ID: process.env.ACTUAL_DEVICE_ID || 'BTTE1250002',
@@ -20,7 +21,6 @@ module.exports = {
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
 
   // Intervals
-  DATA_POLL_INTERVAL: parseInt(process.env.DATA_POLL_INTERVAL || '30000'),
   DISPLAY_UPDATE_INTERVAL: parseInt(process.env.DISPLAY_UPDATE_INTERVAL || '10000'),
 
   // Sensor Labels

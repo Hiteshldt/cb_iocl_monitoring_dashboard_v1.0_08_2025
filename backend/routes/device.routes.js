@@ -241,11 +241,11 @@ router.put('/display', async (req, res) => {
 
 /**
  * GET /api/device/history/hour
- * Get hourly historical data
+ * Get hourly historical data (for charts/reports, NOT live data)
  */
 router.get('/history/hour', async (req, res) => {
   try {
-    const data = await awsService.getHourlyData();
+    const data = await awsService.getHourlyGraphData();
 
     // Transform device IDs
     const transformedData = {
@@ -269,11 +269,11 @@ router.get('/history/hour', async (req, res) => {
 
 /**
  * GET /api/device/history/day
- * Get daily historical data
+ * Get daily historical data (for charts/reports)
  */
 router.get('/history/day', async (req, res) => {
   try {
-    const data = await awsService.getDailyData();
+    const data = await awsService.getDailyGraphData();
 
     const transformedData = {
       ...data,
@@ -296,11 +296,11 @@ router.get('/history/day', async (req, res) => {
 
 /**
  * GET /api/device/history/week
- * Get weekly historical data
+ * Get weekly historical data (for charts/reports)
  */
 router.get('/history/week', async (req, res) => {
   try {
-    const data = await awsService.getWeeklyData();
+    const data = await awsService.getWeeklyGraphData();
 
     const transformedData = {
       ...data,
@@ -317,6 +317,58 @@ router.get('/history/week', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching weekly data'
+    });
+  }
+});
+
+/**
+ * GET /api/device/report
+ * Request report generation for date range
+ * Returns a download link from AWS
+ */
+router.get('/report', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    // Validate date parameters
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'startDate and endDate are required (format: YYYY-MM-DD)'
+      });
+    }
+
+    // Validate date format
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid date format. Use YYYY-MM-DD'
+      });
+    }
+
+    // Validate date range
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (start > end) {
+      return res.status(400).json({
+        success: false,
+        message: 'startDate must be before or equal to endDate'
+      });
+    }
+
+    logger.info(`Report requested for ${startDate} to ${endDate}`);
+    const data = await awsService.requestReport(startDate, endDate);
+
+    res.json({
+      success: true,
+      ...data
+    });
+  } catch (error) {
+    logger.error('Error generating report:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating report. Please try again.'
     });
   }
 });

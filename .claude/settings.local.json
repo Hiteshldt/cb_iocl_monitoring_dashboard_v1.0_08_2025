@@ -12,7 +12,12 @@
       "Bash(npm run dev:*)",
       "Bash(findstr:*)",
       "Bash(find:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(node:*)",
+      "Bash(timeout 15 node:*)",
+      "Bash(kill:*)",
+      "Bash(/c/Windows/System32/taskkill.exe //F //PID 49580)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []

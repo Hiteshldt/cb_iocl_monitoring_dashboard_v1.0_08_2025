@@ -222,8 +222,12 @@ class AutomationService {
 
       const targetState = shouldActivate ? 1 : 0;
 
-      // Check if state needs to change
-      const currentRelayStates = await relayService.getAllRelayStates();
+      // Check current relay state from websocket/cache data (source of truth)
+      const currentRelayStates = cacheService.getRelayStates();
+      if (!currentRelayStates) {
+        logger.debug('No relay states available in cache, skipping rule evaluation');
+        return;
+      }
       const currentState = currentRelayStates[rule.relay];
 
       if (currentState !== targetState) {
@@ -277,8 +281,12 @@ class AutomationService {
 
       const targetState = shouldBeOn ? 1 : 0;
 
-      // Check if state needs to change
-      const currentRelayStates = await relayService.getAllRelayStates();
+      // Check current relay state from websocket/cache data (source of truth)
+      const currentRelayStates = cacheService.getRelayStates();
+      if (!currentRelayStates) {
+        logger.debug('No relay states available in cache, skipping time rule evaluation');
+        return;
+      }
       const currentState = currentRelayStates[rule.relay];
 
       // Prevent duplicate executions
