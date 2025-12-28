@@ -6,11 +6,33 @@ const displayService = require('../services/display.service');
 const { transformDeviceData } = require('../utils/deviceMapper');
 const { verifyToken } = require('../middleware/auth.middleware');
 const logger = require('../utils/logger');
+const { FEATURES, RELAY_LABELS, ACTIVE_RELAYS } = require('../config/constants');
 
 const router = express.Router();
 
 // All routes require authentication
 router.use(verifyToken);
+
+/**
+ * GET /api/device/config
+ * Get frontend configuration (features, relay labels, active relays)
+ */
+router.get('/config', (req, res) => {
+  try {
+    res.json({
+      success: true,
+      features: FEATURES,
+      relayLabels: RELAY_LABELS,
+      activeRelays: ACTIVE_RELAYS
+    });
+  } catch (error) {
+    logger.error('Error getting config:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching config'
+    });
+  }
+});
 
 /**
  * GET /api/device/current
@@ -325,9 +347,18 @@ router.get('/history/week', async (req, res) => {
  * GET /api/device/report
  * Request report generation for date range
  * Returns a download link from AWS
+ * NOTE: This endpoint is controlled by FEATURES.ENABLE_DATA_DOWNLOAD
  */
 router.get('/report', async (req, res) => {
   try {
+    // Check if data download feature is enabled
+    if (!FEATURES.ENABLE_DATA_DOWNLOAD) {
+      return res.status(403).json({
+        success: false,
+        message: 'Data download feature is disabled'
+      });
+    }
+
     const { startDate, endDate } = req.query;
 
     // Validate date parameters

@@ -23,6 +23,43 @@ module.exports = {
   // Intervals
   DISPLAY_UPDATE_INTERVAL: parseInt(process.env.DISPLAY_UPDATE_INTERVAL || '10000'),
 
+  // ============================================================================
+  // FEATURE TOGGLES
+  // Set to true/false to enable/disable features for frontend
+  // ============================================================================
+  FEATURES: {
+    ENABLE_DATA_DOWNLOAD: false,  // Set to true to enable CSV report download in frontend
+  },
+
+  // ============================================================================
+  // RELAY MAPPING
+  // Maps physical relay labels (R1, R2, etc.) to device relay IDs (i1, i2, etc.)
+  // Only 8 relays are mapped (R1-R8), i9 and i10 are not connected
+  //
+  // Physical Panel  →  Device ID
+  // R1              →  i4
+  // R2              →  i1
+  // R3              →  i2
+  // R4              →  i3
+  // R5              →  i8
+  // R6              →  i5
+  // R7              →  i6
+  // R8              →  i7
+  // ============================================================================
+  RELAY_MAPPING: {
+    'R1': 'i4',
+    'R2': 'i1',
+    'R3': 'i2',
+    'R4': 'i3',
+    'R5': 'i8',
+    'R6': 'i5',
+    'R7': 'i6',
+    'R8': 'i7',
+  },
+
+  // Active relay IDs (only these are shown in the frontend)
+  ACTIVE_RELAYS: ['i4', 'i1', 'i2', 'i3', 'i8', 'i5', 'i6', 'i7'],
+
   // Sensor Labels
   SENSOR_LABELS: {
     d1: 'Inlet-CO₂',
@@ -48,17 +85,16 @@ module.exports = {
     d40: 'Additional-4'
   },
 
-  // Relay Labels
+  // Relay Labels - Updated to show physical relay names (R1-R8)
+  // Key is device ID, value is the label shown in UI
   RELAY_LABELS: {
-    i1: 'Relay 1',
-    i2: 'Relay 2',
-    i3: 'Relay 3',
-    i4: 'Relay 4',
-    i5: 'Relay 5',
-    i6: 'Relay 6',
-    i7: 'Relay 7',
-    i8: 'Relay 8',
-    i9: 'Relay 9',
-    i10: 'Relay 10'
+    i4: 'R1',  // Device i4 = Physical R1
+    i1: 'R2',  // Device i1 = Physical R2
+    i2: 'R3',  // Device i2 = Physical R3
+    i3: 'R4',  // Device i3 = Physical R4
+    i8: 'R5',  // Device i8 = Physical R5
+    i5: 'R6',  // Device i5 = Physical R6
+    i6: 'R7',  // Device i6 = Physical R7
+    i7: 'R8',  // Device i7 = Physical R8
   }
 };
