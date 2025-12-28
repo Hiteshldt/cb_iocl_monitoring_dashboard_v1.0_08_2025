@@ -1,6 +1,7 @@
 const awsService = require('./aws.service');
 const cacheService = require('./cache.service');
 const dataTransformer = require('./data-transformer.service');
+const automationService = require('./automation.service');
 const fileStorage = require('../utils/fileStorage');
 const logger = require('../utils/logger');
 const { DISPLAY_UPDATE_INTERVAL } = require('../config/constants');
@@ -88,12 +89,16 @@ class DisplayService {
         return;
       }
 
+      // Get automation rules to determine relay modes (manual vs auto)
+      const automationRules = await automationService.getRules();
+
       // =====================================================================
       // Use dataTransformer to get display values
       // This allows custom configuration of what values go to the LED screen
       // Edit DISPLAY_TRANSFORMS in data-transformer.service.js to customize
+      // i21 = relay modes (1=Manual, 2=Auto), i22 = relay states (1=ON, 2=OFF)
       // =====================================================================
-      const displayData = dataTransformer.getDisplayValues(processedData || { sensors: currentData });
+      const displayData = dataTransformer.getDisplayValues(processedData || { sensors: currentData }, automationRules);
 
       if (!displayData) {
         logger.debug('Could not generate display values');
@@ -103,7 +108,7 @@ class DisplayService {
       // Send command to device
       await awsService.sendCommand(displayData);
 
-      logger.debug(`Display updated: AQI=${displayData.i11}, TEMP=${displayData.i12}°C, HUM=${displayData.i13}%, CO2=${displayData.i14}g, O2=${displayData.i15}L, ${displayData.i16}/${displayData.i17}/${displayData.i18} ${displayData.i19}:${displayData.i20}`);
+      logger.debug(`Display updated: AQI=${displayData.i11}, TEMP=${displayData.i12}°C, HUM=${displayData.i13}%, CO2=${displayData.i14}g, O2=${displayData.i15}L, ${displayData.i16}/${displayData.i17}/${displayData.i18} ${displayData.i19}:${displayData.i20}, Modes=${displayData.i21}, States=${displayData.i22}`);
     } catch (error) {
       logger.error('Error updating display:', error.message);
     }

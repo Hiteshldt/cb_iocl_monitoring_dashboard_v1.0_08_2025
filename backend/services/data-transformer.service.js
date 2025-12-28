@@ -85,7 +85,7 @@ const SENSOR_TRANSFORMS = {
 // ============================================================================
 // DISPLAY (LED SCREEN) VALUE CONFIGURATION
 // ============================================================================
-// Configure what values are sent to the LED display (i11-i20).
+// Configure what values are sent to the LED display (i11-i22).
 // Each display slot can be mapped to a sensor value with optional transformation.
 //
 // Current mapping:
@@ -99,6 +99,8 @@ const SENSOR_TRANSFORMS = {
 // i18 = Year (YY - last 2 digits)
 // i19 = Hour (HH)
 // i20 = Minute (MM)
+// i21 = Relay Modes (8-digit string: 1=Manual, 2=Auto for each R1-R8)
+// i22 = Relay States (8-digit string: 1=ON, 2=OFF for each R1-R8)
 //
 // You can override any of these with custom sources and formulas.
 // ============================================================================
@@ -108,6 +110,19 @@ const DISPLAY_TRANSFORMS = {
   // Example:
   // i11: { source: 'calculated.aqi.value', transform: { type: 'round', decimals: 0 } },
 };
+
+// Relay mapping: Display name (R1-R8) to internal ID (i1-i8)
+// This matches the frontend mapping
+const RELAY_MAPPING = [
+  { display: 'R1', internal: 'i4' },
+  { display: 'R2', internal: 'i1' },
+  { display: 'R3', internal: 'i2' },
+  { display: 'R4', internal: 'i3' },
+  { display: 'R5', internal: 'i8' },
+  { display: 'R6', internal: 'i5' },
+  { display: 'R7', internal: 'i6' },
+  { display: 'R8', internal: 'i7' },
+];
 
 // ============================================================================
 // TRANSFORMATION ENGINE (DO NOT EDIT UNLESS YOU KNOW WHAT YOU'RE DOING)
@@ -252,20 +267,41 @@ class DataTransformerService {
   /**
    * Get transformed values for LED display
    * @param {Object} processedData - Processed data from calculationsService
-   * @returns {Object} - Display values (i11-i20)
+   * @param {Array} automationRules - Optional automation rules for relay mode detection
+   * @returns {Object} - Display values (i11-i22)
    */
-  getDisplayValues(processedData) {
+  getDisplayValues(processedData, automationRules = []) {
     if (!processedData) {
       return null;
     }
 
     const sensorData = processedData.sensors || processedData;
     const calculated = processedData.calculated || {};
+    const relays = processedData.relays || sensorData;
 
     // Default display values
     // i11 = AQI, i12 = TEMP, i13 = HUMI, i14 = CO2 REDUCED, i15 = O2 GENERATED
     // i16 = DD, i17 = MM, i18 = YY, i19 = HH, i20 = MM (minute)
+    // i21 = Relay Modes (8-digit: 1=Manual, 2=Auto), i22 = Relay States (8-digit: 1=ON, 2=OFF)
     const now = new Date();
+
+    // Build relay mode string (i21) and state string (i22) for R1-R8
+    // 1 = Manual/ON, 2 = Auto/OFF
+    let relayModes = '';
+    let relayStates = '';
+
+    for (const { internal: relayId } of RELAY_MAPPING) {
+      // Check if relay has an active automation rule (sensor or time mode = Auto)
+      const hasAutoRule = automationRules.some(
+        rule => rule.relay === relayId && rule.enabled && (rule.mode === 'sensor' || rule.mode === 'time')
+      );
+      relayModes += hasAutoRule ? '2' : '1';  // 1 = Manual, 2 = Auto
+
+      // Get relay state
+      const isOn = relays[relayId] === 1;
+      relayStates += isOn ? '1' : '2';  // 1 = ON, 2 = OFF
+    }
+
     const defaults = {
       i11: calculated.aqi?.value || this.calculateSimpleAQI(sensorData),       // AQI
       i12: Math.round(sensorData.d10 || 0),                                      // Temperature (outlet)
@@ -276,7 +312,9 @@ class DataTransformerService {
       i17: now.getMonth() + 1,                                                    // Month (MM)
       i18: now.getFullYear() % 100,                                               // Year (YY)
       i19: now.getHours(),                                                        // Hour (HH)
-      i20: now.getMinutes()                                                       // Minute (MM)
+      i20: now.getMinutes(),                                                      // Minute (MM)
+      i21: relayModes,                                                            // Relay Modes (8-digit string)
+      i22: relayStates                                                            // Relay States (8-digit string)
     };
 
     // Apply any display overrides
