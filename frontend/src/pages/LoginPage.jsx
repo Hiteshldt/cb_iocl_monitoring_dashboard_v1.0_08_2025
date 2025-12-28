@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Lock, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import xtraO2Logo from '../assets/Xtra_O2_Logo_Final-02_-_Copy-removebg-preview.png';
 
 const LoginPage = () => {
   const [deviceId, setDeviceId] = useState('IOCL_XTRA_O2_ADMIN');
@@ -31,22 +32,23 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Company Header */}
+        {/* Company Header with Logo */}
         <div className="text-center mb-5">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg shadow-lg mb-2">
-            <Lock className="w-6 h-6 text-white" />
+          <div className="inline-flex items-center justify-center bg-white rounded-xl shadow-lg p-3 mb-3">
+            <img
+              src={xtraO2Logo}
+              alt="IOCL Xtra O2"
+              className="h-16 w-auto"
+            />
           </div>
-          <h1 className="text-xl font-bold text-gray-900 mb-0.5">
-            IOCL
-          </h1>
-          <p className="text-gray-600 text-xs uppercase tracking-wide font-medium">
+          <p className="text-iocl-blue text-xs uppercase tracking-wide font-semibold">
             Air Quality Control System
           </p>
         </div>
 
         {/* Login Card */}
         <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2.5">
+          <div className="bg-gradient-to-r from-iocl-orange to-iocl-orange-dark px-4 py-2.5">
             <h2 className="text-white font-semibold text-xs uppercase tracking-wide">System Access</h2>
           </div>
 
@@ -59,7 +61,7 @@ const LoginPage = () => {
                 type="text"
                 value={deviceId}
                 onChange={(e) => setDeviceId(e.target.value)}
-                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded bg-gray-50 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded bg-gray-50 focus:ring-1 focus:ring-iocl-orange focus:border-iocl-orange outline-none transition"
                 required
                 disabled
               />
@@ -73,7 +75,7 @@ const LoginPage = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-iocl-orange focus:border-iocl-orange outline-none transition"
                 placeholder="Enter your password"
                 required
               />
@@ -89,7 +91,7 @@ const LoginPage = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-2 rounded font-semibold text-xs uppercase tracking-wide hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow"
+              className="w-full bg-gradient-to-r from-iocl-orange to-iocl-orange-dark text-white py-2 rounded font-semibold text-xs uppercase tracking-wide hover:from-iocl-orange-dark hover:to-iocl-orange focus:outline-none focus:ring-2 focus:ring-iocl-orange focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -102,8 +104,8 @@ const LoginPage = () => {
             </button>
           </form>
 
-          <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-200">
-            <p className="text-xs text-gray-600 text-center font-medium">
+          <div className="px-4 py-2.5 bg-iocl-blue border-t border-gray-200">
+            <p className="text-xs text-iocl-white text-center font-medium">
               Authorized Personnel Only
             </p>
           </div>
@@ -111,8 +113,8 @@ const LoginPage = () => {
 
         {/* Footer */}
         <div className="text-center mt-3">
-          <p className="text-xs text-gray-500">
-            © 2025 IOCL. All rights reserved.
+          <p className="text-xs text-iocl-blue font-medium">
+            © 2025 Indian Oil Corporation Ltd. All rights reserved.
           </p>
         </div>
       </div>

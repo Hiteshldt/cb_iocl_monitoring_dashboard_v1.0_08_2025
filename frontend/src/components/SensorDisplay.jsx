@@ -117,8 +117,8 @@ const SensorDisplay = ({ data, deviceStatus = {} }) => {
 
       {/* Content */}
       <div className="p-4">
-        {renderSensorGroup('Inlet Sensors', inletSensors, 'bg-blue-500')}
-        {renderSensorGroup('Outlet Sensors', outletSensors, 'bg-green-500')}
+        {renderSensorGroup('Inlet Sensors', inletSensors, 'bg-iocl-orange')}
+        {renderSensorGroup('Outlet Sensors', outletSensors, 'bg-iocl-blue')}
         {renderSensorGroup('System Information', systemInfo, 'bg-slate-500')}
       </div>
     </div>

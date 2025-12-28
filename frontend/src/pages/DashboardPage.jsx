@@ -9,6 +9,8 @@ import OverviewDashboard from '../components/OverviewDashboard';
 import SensorDisplay from '../components/SensorDisplay';
 import RelayControl from '../components/RelayControl';
 import OfflineBanner from '../components/OfflineBanner';
+import xtraO2Logo from '../assets/Xtra_O2_Logo_Final-02_-_Copy-removebg-preview.png';
+import carbelimLogo from '../assets/right_logo.png';
 
 const DashboardPage = () => {
   const { user, logout } = useAuth();
@@ -295,21 +297,28 @@ const DashboardPage = () => {
       )}
 
       {/* Header */}
-      <header className={`border-b shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
+      <header className={`border-b shadow-sm ${isDark ? 'bg-iocl-blue border-iocl-blue-light' : 'bg-white border-gray-200'}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className={`text-base font-bold uppercase tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                IOCL Air Quality Control System
-              </h1>
-              <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
-                Device: {user?.deviceId}
-              </p>
+            {/* Logo Section */}
+            <div className="flex items-center space-x-3">
+              <div className="bg-white rounded-lg px-3 py-1.5">
+                <img
+                  src={xtraO2Logo}
+                  alt="IOCL Xtra O2"
+                  className="h-10 w-auto"
+                />
+              </div>
+              <div className="hidden sm:block">
+                <p className={`text-xs ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                  Device: {user?.deviceId}
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center space-x-2">
               {/* Device Status */}
-              <div className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded border ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-gray-100 border-gray-200'}`}>
+              <div className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded border ${isDark ? 'bg-iocl-blue-light/50 border-iocl-blue-light' : 'bg-gray-100 border-gray-200'}`}>
                 <div className={`w-2 h-2 rounded-full ${
                   deviceStatus.hasData === undefined
                     ? 'bg-yellow-500' // Unknown/Loading
@@ -330,7 +339,7 @@ const DashboardPage = () => {
 
               {/* GSM Signal */}
               {sensorData?.d38 && (
-                <div className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded border ${isDark ? 'bg-slate-700/50 border-slate-600 text-slate-300' : 'bg-gray-100 border-gray-200 text-gray-700'}`}>
+                <div className={`hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded border ${isDark ? 'bg-iocl-blue-light/50 border-iocl-blue-light text-gray-300' : 'bg-gray-100 border-gray-200 text-gray-700'}`}>
                   <Signal className="w-3.5 h-3.5" />
                   <span className="text-xs font-medium">{sensorData.d38}</span>
                 </div>
@@ -338,7 +347,7 @@ const DashboardPage = () => {
 
               {/* Last Update */}
               {lastUpdate && (
-                <div className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded border ${isDark ? 'bg-slate-700/50 border-slate-600 text-slate-300' : 'bg-gray-100 border-gray-200 text-gray-700'}`}>
+                <div className={`hidden md:flex items-center space-x-1.5 px-2.5 py-1.5 rounded border ${isDark ? 'bg-iocl-blue-light/50 border-iocl-blue-light text-gray-300' : 'bg-gray-100 border-gray-200 text-gray-700'}`}>
                   <Clock className="w-3.5 h-3.5" />
                   <span className="text-xs font-medium">{lastUpdate.toLocaleTimeString()}</span>
                 </div>
@@ -347,7 +356,7 @@ const DashboardPage = () => {
               {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
-                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded border transition ${isDark ? 'bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700' : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200'}`}
+                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded border transition ${isDark ? 'bg-iocl-blue-light/50 border-iocl-blue-light text-gray-300 hover:bg-iocl-blue-light' : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200'}`}
                 title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               >
                 {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
@@ -356,11 +365,20 @@ const DashboardPage = () => {
               {/* Logout */}
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition text-xs font-semibold uppercase"
+                className="flex items-center px-2 py-1.5 bg-iocl-orange text-white rounded hover:bg-iocl-orange-dark transition"
+                title="Logout"
               >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Logout</span>
+                <LogOut className="w-4 h-4" />
               </button>
+
+              {/* Carbelim Logo */}
+              <div className="bg-white rounded-lg px-2 py-1.5">
+                <img
+                  src={carbelimLogo}
+                  alt="Carbelim"
+                  className="h-8 w-auto"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -379,7 +397,7 @@ const DashboardPage = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 transition ${
                     isActive
-                      ? (isDark ? 'border-blue-500 text-blue-400' : 'border-blue-600 text-blue-600')
+                      ? (isDark ? 'border-iocl-orange text-iocl-orange' : 'border-iocl-orange text-iocl-orange')
                       : (isDark ? 'border-transparent text-slate-400 hover:text-slate-300' : 'border-transparent text-gray-500 hover:text-gray-700')
                   }`}
                 >
@@ -398,7 +416,6 @@ const DashboardPage = () => {
           <OverviewDashboard
             data={deviceData}
             relayNames={relayNames}
-            onAirflowUpdate={handleAirflowUpdate}
             deviceStatus={deviceStatus}
           />
         )}
@@ -417,7 +434,7 @@ const DashboardPage = () => {
             {backendConfig.features.ENABLE_DATA_DOWNLOAD && (
               <div className={`${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-gray-200'} rounded-lg p-4 shadow-sm`}>
                 <div className="flex items-center space-x-2 mb-3">
-                  <Download className={`w-5 h-5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+                  <Download className="w-5 h-5 text-iocl-orange" />
                   <h3 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
                     Download Report
                   </h3>
@@ -478,7 +495,7 @@ const DashboardPage = () => {
                       className={`px-4 py-2 text-sm font-semibold rounded flex items-center space-x-2 transition ${
                         reportLoading || !reportStartDate || !reportEndDate
                           ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-iocl-orange text-white hover:bg-iocl-orange-dark'
                       }`}
                     >
                       {reportLoading ? (

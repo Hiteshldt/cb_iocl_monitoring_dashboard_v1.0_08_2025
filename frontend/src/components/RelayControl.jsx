@@ -50,6 +50,18 @@ const getModeColors = (mode, isDark) => {
   }
 };
 
+// Relay mapping: Display name (R1-R8) to internal ID (i1-i8)
+const RELAY_MAPPING = [
+  { display: 'R1', internal: 'i4' },
+  { display: 'R2', internal: 'i1' },
+  { display: 'R3', internal: 'i2' },
+  { display: 'R4', internal: 'i3' },
+  { display: 'R5', internal: 'i8' },
+  { display: 'R6', internal: 'i5' },
+  { display: 'R7', internal: 'i6' },
+  { display: 'R8', internal: 'i7' },
+];
+
 const RelayControl = ({ data, relayNames = {}, deviceStatus = {} }) => {
   const { isDark } = useTheme();
   const [relays, setRelays] = useState({});
@@ -84,8 +96,8 @@ const RelayControl = ({ data, relayNames = {}, deviceStatus = {} }) => {
       const newRelayStates = {};
       const confirmedRelays = []; // Track which relays got confirmed
 
-      for (let i = 1; i <= 10; i++) {
-        const relayId = `i${i}`;
+      // Only track relays used in RELAY_MAPPING (i1-i8)
+      RELAY_MAPPING.forEach(({ internal: relayId }) => {
         newRelayStates[relayId] = data[relayId] || 0;
 
         // Check if this relay was pending and now matches the target state
@@ -96,7 +108,7 @@ const RelayControl = ({ data, relayNames = {}, deviceStatus = {} }) => {
             confirmedRelays.push(relayId);
           }
         }
-      }
+      });
 
       setRelays(newRelayStates);
 
@@ -238,7 +250,7 @@ const RelayControl = ({ data, relayNames = {}, deviceStatus = {} }) => {
       {/* Header */}
       <div className={`px-4 py-3 border-b flex items-center justify-between ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
         <div className="flex items-center space-x-2">
-          <Power className={`w-5 h-5 ${isOffline ? (isDark ? 'text-slate-500' : 'text-gray-400') : (isDark ? 'text-blue-400' : 'text-blue-600')}`} />
+          <Power className={`w-5 h-5 ${isOffline ? (isDark ? 'text-slate-500' : 'text-gray-400') : 'text-iocl-orange'}`} />
           <h2 className={`text-base font-bold uppercase tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>
             Relay Control
           </h2>
@@ -251,20 +263,19 @@ const RelayControl = ({ data, relayNames = {}, deviceStatus = {} }) => {
             <span className={`px-1.5 py-0.5 rounded ${getModeColors('time', isDark).badge}`}>Timer</span>
           </div>
           <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>
-            {Object.values(relays).filter(v => v === 1).length} / 10 Active
+            {Object.values(relays).filter(v => v === 1).length} / 8 Active
           </span>
         </div>
       </div>
 
       {/* Content */}
       <div className="p-3">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
-            const relayId = `i${num}`;
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-4 gap-2">
+          {RELAY_MAPPING.map(({ display, internal: relayId }) => {
             const isOn = relays[relayId] === 1;
             const rule = getRelayRule(relayId);
             const editing = editingRelay === relayId;
-            const name = relayNames[relayId] || `Relay ${num}`;
+            const name = relayNames[relayId] || display;
             const mode = rule?.mode || 'manual';
             const modeColors = getModeColors(mode, isDark);
             const isPending = !!pendingRelays[relayId];
@@ -282,7 +293,7 @@ const RelayControl = ({ data, relayNames = {}, deviceStatus = {} }) => {
                       isPending
                         ? 'bg-yellow-500 animate-pulse'
                         : isOn
-                          ? 'bg-green-500 shadow-sm shadow-green-500/50'
+                          ? 'bg-iocl-orange shadow-sm shadow-iocl-orange/50'
                           : (isDark ? 'bg-slate-600' : 'bg-gray-300')
                     }`}></div>
                     <span className={`text-xs font-semibold truncate ${isDark ? 'text-white' : 'text-gray-900'}`} title={name}>
@@ -307,7 +318,7 @@ const RelayControl = ({ data, relayNames = {}, deviceStatus = {} }) => {
                   {/* Status & Mode Badge */}
                   <div className="flex items-center justify-between mb-1.5">
                     <span className={`text-xs font-mono ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>
-                      {relayId.toUpperCase()}
+                      {display}
                     </span>
                     <div className="flex items-center space-x-1">
                       {isPending && <Loader2 className="w-3 h-3 animate-spin text-yellow-500" />}
@@ -320,7 +331,7 @@ const RelayControl = ({ data, relayNames = {}, deviceStatus = {} }) => {
                         isPending
                           ? 'text-yellow-500'
                           : isOn
-                            ? (isDark ? 'text-green-400' : 'text-green-600')
+                            ? 'text-iocl-orange'
                             : (isDark ? 'text-slate-500' : 'text-gray-400')
                       }`}>
                         {isPending ? (pendingTarget === 1 ? 'ON...' : 'OFF...') : (isOn ? 'ON' : 'OFF')}
@@ -467,7 +478,7 @@ const RelayConfigPanel = ({ relayId, currentRule, onSave, onCancel, onDelete, lo
 
       {/* Buttons */}
       <div className="flex space-x-1">
-        <button onClick={handleSubmit} disabled={loading} className="flex-1 bg-blue-600 text-white py-1 rounded text-xs hover:bg-blue-700">
+        <button onClick={handleSubmit} disabled={loading} className="flex-1 bg-iocl-orange text-white py-1 rounded text-xs hover:bg-iocl-orange-dark">
           ✓
         </button>
         <button onClick={onCancel} className={`flex-1 py-1 rounded text-xs ${isDark ? 'bg-slate-600 text-white' : 'bg-gray-200 text-gray-700'}`}>

@@ -21,13 +21,16 @@
   background: #555;
 }
 
-/* Corporate theme */
+/* IOCL Brand Theme */
 :root {
-  --color-primary: #1e40af;
-  --color-secondary: #64748b;
+  --color-primary: #F37022;
+  --color-primary-dark: #d65f1a;
+  --color-secondary: #02164F;
+  --color-secondary-light: #0a2a7a;
   --color-success: #10b981;
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
+  --color-white: #FEFEFE;
 }
 
 body {
