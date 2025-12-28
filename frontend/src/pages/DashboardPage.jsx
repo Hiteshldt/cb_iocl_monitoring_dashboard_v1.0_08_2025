@@ -253,7 +253,7 @@ const DashboardPage = () => {
     return (
       <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent mx-auto mb-3"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-iocl-orange border-t-transparent mx-auto mb-3"></div>
           <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>Loading dashboard...</p>
         </div>
       </div>
@@ -268,7 +268,7 @@ const DashboardPage = () => {
           <p className="text-xs">{error || 'No data available'}</p>
           <button
             onClick={fetchDeviceData}
-            className="mt-3 bg-red-600 text-white px-3 py-1.5 rounded text-xs hover:bg-red-700"
+            className="mt-3 bg-iocl-orange text-white px-3 py-1.5 rounded text-xs hover:bg-iocl-orange-dark"
           >
             Retry
           </button>

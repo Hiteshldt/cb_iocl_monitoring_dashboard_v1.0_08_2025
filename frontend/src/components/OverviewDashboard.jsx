@@ -257,11 +257,11 @@ const OverviewDashboard = ({ data, relayNames, deviceStatus = {} }) => {
       {/* Accumulated Totals */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* CO2 Reduced */}
-        <div className={`rounded-lg border overflow-hidden ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200 shadow-sm'}`}>
-          <div className={`px-4 py-2 border-b ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+        <div className={`rounded-lg border overflow-hidden ${isDark ? 'bg-slate-900 border-iocl-orange/30' : 'bg-white border-iocl-orange/30 shadow-sm'}`}>
+          <div className={`px-4 py-2 border-b ${isDark ? 'bg-iocl-orange/10 border-iocl-orange/20' : 'bg-iocl-orange/5 border-iocl-orange/20'}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div className={`w-1 h-4 rounded ${isDark ? 'bg-emerald-500' : 'bg-emerald-600'}`}></div>
+                <div className="w-1 h-4 rounded bg-iocl-orange"></div>
                 <span className={`text-sm font-semibold uppercase tracking-wide ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>
                   CO₂ Reduced
                 </span>
@@ -271,12 +271,12 @@ const OverviewDashboard = ({ data, relayNames, deviceStatus = {} }) => {
           </div>
           <div className="px-4 py-4">
             <div className="flex items-center justify-between mb-3">
-              <Wind className={`w-8 h-8 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
+              <Wind className={`w-8 h-8 ${isDark ? 'text-iocl-orange' : 'text-iocl-orange'}`} />
               <div className="text-right">
-                <span className={`text-2xl font-bold tabular-nums ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                <span className={`text-2xl font-bold tabular-nums ${isDark ? 'text-iocl-orange' : 'text-iocl-orange-dark'}`}>
                   {formatCO2(displayValues.co2AbsorbedGrams).value}
                 </span>
-                <span className={`text-sm ml-1 ${isDark ? 'text-emerald-500' : 'text-emerald-700'}`}>
+                <span className={`text-sm ml-1 ${isDark ? 'text-iocl-orange/70' : 'text-iocl-orange'}`}>
                   {formatCO2(displayValues.co2AbsorbedGrams).unit}
                 </span>
               </div>
@@ -285,11 +285,11 @@ const OverviewDashboard = ({ data, relayNames, deviceStatus = {} }) => {
         </div>
 
         {/* O2 Released */}
-        <div className={`rounded-lg border overflow-hidden ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200 shadow-sm'}`}>
-          <div className={`px-4 py-2 border-b ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+        <div className={`rounded-lg border overflow-hidden ${isDark ? 'bg-slate-900 border-iocl-blue/30' : 'bg-white border-iocl-blue/30 shadow-sm'}`}>
+          <div className={`px-4 py-2 border-b ${isDark ? 'bg-iocl-blue/10 border-iocl-blue/20' : 'bg-iocl-blue/5 border-iocl-blue/20'}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div className={`w-1 h-4 rounded ${isDark ? 'bg-cyan-500' : 'bg-cyan-600'}`}></div>
+                <div className="w-1 h-4 rounded bg-iocl-blue"></div>
                 <span className={`text-sm font-semibold uppercase tracking-wide ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>
                   O₂ Released
                 </span>
@@ -299,12 +299,12 @@ const OverviewDashboard = ({ data, relayNames, deviceStatus = {} }) => {
           </div>
           <div className="px-4 py-4">
             <div className="flex items-center justify-between mb-3">
-              <Leaf className={`w-8 h-8 ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`} />
+              <Leaf className={`w-8 h-8 ${isDark ? 'text-blue-400' : 'text-iocl-blue'}`} />
               <div className="text-right">
-                <span className={`text-2xl font-bold tabular-nums ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                <span className={`text-2xl font-bold tabular-nums ${isDark ? 'text-blue-400' : 'text-iocl-blue'}`}>
                   {formatO2(displayValues.o2GeneratedLiters).value}
                 </span>
-                <span className={`text-sm ml-1 ${isDark ? 'text-cyan-500' : 'text-cyan-700'}`}>
+                <span className={`text-sm ml-1 ${isDark ? 'text-blue-300' : 'text-iocl-blue-light'}`}>
                   {formatO2(displayValues.o2GeneratedLiters).unit}
                 </span>
               </div>

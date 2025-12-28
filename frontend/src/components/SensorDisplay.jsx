@@ -35,7 +35,7 @@ const SensorDisplay = ({ data, deviceStatus = {} }) => {
   const outletSensors = ['d8', 'd9', 'd10', 'd11', 'd12', 'd13', 'd14'];
   const systemInfo = ['d38', 'd39', 'd40'];
 
-  const renderSensorGroup = (title, sensors, accentColor) => (
+  const renderSensorGroup = (title, sensors, accentColor, iconColor) => (
     <div className="mb-4">
       <div className={`flex items-center space-x-2 mb-3 pb-2 border-b ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
         <div className={`w-1 h-4 rounded ${accentColor}`}></div>
@@ -71,7 +71,7 @@ const SensorDisplay = ({ data, deviceStatus = {} }) => {
                 <span className={`text-xs font-mono font-medium ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
                   {key.toUpperCase()}
                 </span>
-                <Icon className={`w-3.5 h-3.5 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
+                <Icon className={`w-3.5 h-3.5 ${iconColor}`} />
               </div>
 
               {/* Value */}
@@ -110,16 +110,19 @@ const SensorDisplay = ({ data, deviceStatus = {} }) => {
 
       {/* Header */}
       <div className={`px-4 py-3 border-b ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
-        <h2 className={`text-base font-bold uppercase tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Sensor Readings
-        </h2>
+        <div className="flex items-center space-x-2">
+          <Activity className="w-5 h-5 text-iocl-orange" />
+          <h2 className={`text-base font-bold uppercase tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            Sensor Readings
+          </h2>
+        </div>
       </div>
 
       {/* Content */}
       <div className="p-4">
-        {renderSensorGroup('Inlet Sensors', inletSensors, 'bg-iocl-orange')}
-        {renderSensorGroup('Outlet Sensors', outletSensors, 'bg-iocl-blue')}
-        {renderSensorGroup('System Information', systemInfo, 'bg-slate-500')}
+        {renderSensorGroup('Inlet Sensors', inletSensors, 'bg-iocl-orange', 'text-iocl-orange')}
+        {renderSensorGroup('Outlet Sensors', outletSensors, 'bg-iocl-blue', 'text-iocl-blue')}
+        {renderSensorGroup('System Information', systemInfo, 'bg-slate-500', isDark ? 'text-slate-400' : 'text-gray-500')}
       </div>
     </div>
   );

@@ -20,24 +20,24 @@ const SENSOR_OPTIONS = [
   { value: 'd14', label: 'Outlet Water Temp' },
 ];
 
-// Mode colors for visual distinction
+// Mode colors for visual distinction - using IOCL theme
 const getModeColors = (mode, isDark) => {
   switch (mode) {
     case 'sensor':
       return {
-        bg: isDark ? 'bg-green-900/20' : 'bg-green-50',
-        border: isDark ? 'border-green-700/50' : 'border-green-300',
-        text: isDark ? 'text-green-400' : 'text-green-700',
-        icon: isDark ? 'text-green-400' : 'text-green-600',
-        badge: isDark ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-800'
+        bg: isDark ? 'bg-iocl-blue/20' : 'bg-blue-50',
+        border: isDark ? 'border-iocl-blue/50' : 'border-iocl-blue/30',
+        text: isDark ? 'text-blue-300' : 'text-iocl-blue',
+        icon: isDark ? 'text-blue-300' : 'text-iocl-blue',
+        badge: isDark ? 'bg-iocl-blue/50 text-blue-200' : 'bg-iocl-blue/10 text-iocl-blue'
       };
     case 'time':
       return {
-        bg: isDark ? 'bg-purple-900/20' : 'bg-purple-50',
-        border: isDark ? 'border-purple-700/50' : 'border-purple-300',
-        text: isDark ? 'text-purple-400' : 'text-purple-700',
-        icon: isDark ? 'text-purple-400' : 'text-purple-600',
-        badge: isDark ? 'bg-purple-900/50 text-purple-300' : 'bg-purple-100 text-purple-800'
+        bg: isDark ? 'bg-iocl-orange/10' : 'bg-orange-50',
+        border: isDark ? 'border-iocl-orange/30' : 'border-iocl-orange/30',
+        text: isDark ? 'text-orange-300' : 'text-iocl-orange-dark',
+        icon: isDark ? 'text-orange-300' : 'text-iocl-orange',
+        badge: isDark ? 'bg-iocl-orange/30 text-orange-200' : 'bg-iocl-orange/10 text-iocl-orange-dark'
       };
     default: // manual
       return {
@@ -377,8 +377,8 @@ const RelayControl = ({ data, relayNames = {}, deviceStatus = {} }) => {
                           : isOffline
                             ? (isDark ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed')
                             : isOn
-                              ? 'bg-red-600 hover:bg-red-700 text-white'
-                              : 'bg-green-600 hover:bg-green-700 text-white'
+                              ? 'bg-iocl-blue hover:bg-iocl-blue-light text-white'
+                              : 'bg-iocl-orange hover:bg-iocl-orange-dark text-white'
                       } disabled:opacity-50`}
                     >
                       {isPending ? (

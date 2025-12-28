@@ -79,39 +79,34 @@ const SENSOR_TRANSFORMS = {
   //   // Custom formula example: adjust based on another sensor
   //   return val * 0.95;
   // }},
+  d1: {type: 'calibrate', offset:-50}
 };
 
 // ============================================================================
 // DISPLAY (LED SCREEN) VALUE CONFIGURATION
 // ============================================================================
-// Configure what values are sent to the LED display (i11-i18).
+// Configure what values are sent to the LED display (i11-i20).
 // Each display slot can be mapped to a sensor value with optional transformation.
 //
-// Default mapping:
+// Current mapping:
 // i11 = AQI (calculated)
 // i12 = Temperature (d10 - outlet temp)
 // i13 = Humidity (d11 - outlet humidity)
-// i14 = Hour
-// i15 = Minute
-// i16 = Day
-// i17 = Month
-// i18 = Year (last 2 digits)
+// i14 = CO2 Reduced (grams)
+// i15 = O2 Generated (liters)
+// i16 = Day (DD)
+// i17 = Month (MM)
+// i18 = Year (YY - last 2 digits)
+// i19 = Hour (HH)
+// i20 = Minute (MM)
 //
 // You can override any of these with custom sources and formulas.
 // ============================================================================
 
 const DISPLAY_TRANSFORMS = {
-  // Override display values here
+  // Override display values here if needed
   // Example:
   // i11: { source: 'calculated.aqi.value', transform: { type: 'round', decimals: 0 } },
-  // i12: { source: 'd10', transform: { type: 'round', decimals: 0 } },
-  // i13: { source: 'd11', transform: { type: 'round', decimals: 0 } },
-
-  // For custom formulas:
-  // i11: {
-  //   source: 'custom',
-  //   formula: (data) => Math.round(data.d1 * 0.5 + data.d8 * 0.5)
-  // },
 };
 
 // ============================================================================
@@ -257,7 +252,7 @@ class DataTransformerService {
   /**
    * Get transformed values for LED display
    * @param {Object} processedData - Processed data from calculationsService
-   * @returns {Object} - Display values (i11-i18)
+   * @returns {Object} - Display values (i11-i20)
    */
   getDisplayValues(processedData) {
     if (!processedData) {
@@ -268,16 +263,20 @@ class DataTransformerService {
     const calculated = processedData.calculated || {};
 
     // Default display values
+    // i11 = AQI, i12 = TEMP, i13 = HUMI, i14 = CO2 REDUCED, i15 = O2 GENERATED
+    // i16 = DD, i17 = MM, i18 = YY, i19 = HH, i20 = MM (minute)
     const now = new Date();
     const defaults = {
-      i11: calculated.aqi?.value || this.calculateSimpleAQI(sensorData),
-      i12: Math.round(sensorData.d10 || 0),  // Outlet Temperature
-      i13: Math.round(sensorData.d11 || 0),  // Outlet Humidity
-      i14: now.getHours(),
-      i15: now.getMinutes(),
-      i16: now.getDate(),
-      i17: now.getMonth() + 1,
-      i18: now.getFullYear() % 100
+      i11: calculated.aqi?.value || this.calculateSimpleAQI(sensorData),       // AQI
+      i12: Math.round(sensorData.d10 || 0),                                      // Temperature (outlet)
+      i13: Math.round(sensorData.d11 || 0),                                      // Humidity (outlet)
+      i14: Math.round((calculated.co2?.absorbedGrams || 0) * 100) / 100,         // CO2 Reduced (grams)
+      i15: Math.round((calculated.o2?.generatedLiters || 0) * 1000) / 1000,      // O2 Generated (liters)
+      i16: now.getDate(),                                                         // Day (DD)
+      i17: now.getMonth() + 1,                                                    // Month (MM)
+      i18: now.getFullYear() % 100,                                               // Year (YY)
+      i19: now.getHours(),                                                        // Hour (HH)
+      i20: now.getMinutes()                                                       // Minute (MM)
     };
 
     // Apply any display overrides
@@ -388,8 +387,8 @@ class DataTransformerService {
    * @param {Object} config - Display configuration
    */
   setDisplayTransform(displayId, config) {
-    if (!displayId.match(/^i1[1-8]$/)) {
-      throw new Error('Invalid display ID format. Expected i11-i18');
+    if (!displayId.match(/^i(1[1-9]|20)$/)) {
+      throw new Error('Invalid display ID format. Expected i11-i20');
     }
     this.displayTransforms[displayId] = config;
     logger.info(`Updated display transform for ${displayId}:`, config);
