@@ -137,16 +137,21 @@ class DisplayService {
   }
 
   /**
-   * Calculate AQI from outlet sensor data
-   * This is a simplified AQI calculation
-   * In production, use proper AQI formula based on pollutant standards
+   * Calculate AQI from INLET sensor data (Outside Device)
+   * This is a simplified AQI calculation fallback
+   *
+   * Sensor Mapping:
+   * - d9  = Inlet CO₂ (ppm)
+   * - d10 = Inlet PM2.5 (µg/m³)
+   * - d11 = Inlet Temperature (°C)
+   * - d12 = Inlet Humidity (%)
    */
   calculateAQI(data) {
     try {
-      const co2 = data.d8 || 0;        // Outlet-CO₂
-      const pm = data.d9 || 0;         // Outlet-Dust PM
-      const temp = data.d10 || 0;      // Outlet-Temperature
-      const humidity = data.d11 || 0;  // Outlet-Humidity
+      const co2 = data.d9 || 0;        // Inlet CO₂
+      const pm = data.d10 || 0;        // Inlet PM2.5
+      const temp = data.d11 || 0;      // Inlet Temperature
+      const humidity = data.d12 || 0;  // Inlet Humidity
 
       // Simplified AQI calculation
       // Weight: CO2 (40%), PM (40%), Temp (10%), Humidity (10%)

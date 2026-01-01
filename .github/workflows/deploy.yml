@@ -101,13 +101,16 @@ jobs:
             echo "📦 Installing dependencies..."
             npm ci --production
 
-            # Create/update .env file
-            cat > .env << 'ENVEOF'
-            PORT=${{ secrets.BACKEND_PORT }}
-            NODE_ENV=production
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            AWS_REGION=${{ secrets.AWS_REGION }}
-            ENVEOF
+            # Preserve existing .env file (manually configured on server)
+            # The .env file on EC2 should already contain:
+            # PORT, NODE_ENV, AWS_REGION, AWS_API_BASE_URL, AWS_WEBSOCKET_URL,
+            # ACTUAL_DEVICE_ID, DISPLAY_DEVICE_ID, JWT_SECRET, JWT_EXPIRES_IN,
+            # ADMIN_PASSWORD, DISPLAY_UPDATE_INTERVAL, DEVICE_IMEI, DEVICE_METER
+            if [ ! -f .env ]; then
+              echo "⚠️ Warning: .env file not found. Please configure manually on EC2."
+            else
+              echo "✅ Using existing .env file"
+            fi
 
             # Restart the application with PM2
             echo "🔄 Restarting application..."

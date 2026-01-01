@@ -60,29 +60,31 @@ module.exports = {
   // Active relay IDs (only these are shown in the frontend)
   ACTIVE_RELAYS: ['i4', 'i1', 'i2', 'i3', 'i8', 'i5', 'i6', 'i7'],
 
-  // Sensor Labels
+  // ============================================================================
+  // SENSOR LABELS
+  // Mapping based on actual device configuration:
+  // d1-d8 = Outlet (Inside Device) - Slave 2
+  // d9-d16 = Inlet (Outside Device) - Slave 1
+  // ============================================================================
   SENSOR_LABELS: {
-    d1: 'Inlet-CO₂',
-    d2: 'Inlet-Dust PM',
-    d3: 'Inlet-Temperature',
-    d4: 'Inlet-Humidity',
-    d5: 'Inlet-Water PH',
-    d6: 'Inlet-Water Level',
-    d7: 'Inlet-Water Temp',
-    d8: 'Outlet-CO₂',
-    d9: 'Outlet-Dust PM',
-    d10: 'Outlet-Temperature',
-    d11: 'Outlet-Humidity',
-    d12: 'Outlet-Water PH',
-    d13: 'Outlet-Water Level',
-    d14: 'Outlet-Water Temp',
-    d15: 'SW Ver',
-    d16: 'HW Ver',
-    d17: 'Additional-1',
-    d18: 'Additional-2',
-    d38: 'GSM Signal Strength',
-    d39: 'Additional-3',
-    d40: 'Additional-4'
+    // Outlet sensors (d1-d8) - Inside Device
+    d1: 'Outlet-CO₂',
+    d2: 'Outlet-PM2.5',
+    d3: 'Outlet-Temperature',
+    d4: 'Outlet-Humidity',
+    d5: 'Outlet-pH',
+    d6: 'Outlet-Water Level',
+    d7: 'Outlet-Water Temp',
+    d8: 'Outlet-O₂',
+    // Inlet sensors (d9-d16) - Outside Device
+    d9: 'Inlet-CO₂',
+    d10: 'Inlet-PM2.5',
+    d11: 'Inlet-Temperature',
+    d12: 'Inlet-Humidity',
+    d13: 'Inlet-pH',
+    d14: 'Inlet-Water Level',
+    d15: 'Inlet-Water Temp',
+    d16: 'Inlet-O₂',
   },
 
   // Relay Labels - Updated to show physical relay names (R1-R8)

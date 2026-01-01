@@ -18,10 +18,11 @@
 8. [Environment Variables](#8-environment-variables)
 9. [GitHub Secrets](#9-github-secrets)
 10. [How to Deploy Updates](#10-how-to-deploy-updates)
-11. [Troubleshooting Guide](#11-troubleshooting-guide)
-12. [Useful Commands](#12-useful-commands)
-13. [URLs and Endpoints](#13-urls-and-endpoints)
-14. [Security Configuration](#14-security-configuration)
+11. [Sensor & Relay Mapping](#11-sensor--relay-mapping)
+12. [Troubleshooting Guide](#12-troubleshooting-guide)
+13. [Useful Commands](#13-useful-commands)
+14. [URLs and Endpoints](#14-urls-and-endpoints)
+15. [Security Configuration](#15-security-configuration)
 
 ---
 
@@ -700,7 +701,62 @@ git push origin production
 
 ---
 
-## 11. Troubleshooting Guide
+## 11. Sensor & Relay Mapping
+
+### Sensor Mapping (d1-d16)
+
+The device has two sensor groups:
+- **Outlet (d1-d8):** Inside Device - Slave 2 - Processed air going out
+- **Inlet (d9-d16):** Outside Device - Slave 1 - Air coming in
+
+| Sensor ID | Location | Measurement | Unit |
+|-----------|----------|-------------|------|
+| d1 | Outlet | CO₂ | ppm |
+| d2 | Outlet | PM2.5 | µg/m³ |
+| d3 | Outlet | Temperature | °C |
+| d4 | Outlet | Humidity | % |
+| d5 | Outlet | pH | pH |
+| d6 | Outlet | Water Level | - |
+| d7 | Outlet | Water Temp | °C |
+| d8 | Outlet | O₂ | % |
+| d9 | Inlet | CO₂ | ppm |
+| d10 | Inlet | PM2.5 | µg/m³ |
+| d11 | Inlet | Temperature | °C |
+| d12 | Inlet | Humidity | % |
+| d13 | Inlet | pH | pH |
+| d14 | Inlet | Water Level | - |
+| d15 | Inlet | Water Temp | °C |
+| d16 | Inlet | O₂ | % |
+
+### Formula Usage
+
+| Calculation | Sensors Used | Description |
+|-------------|--------------|-------------|
+| AQI | d9, d10, d11, d12 | Air Quality Index from inlet sensors |
+| CO₂ Absorption | d9 (inlet) - d1 (outlet) | CO₂ difference = absorption |
+| Temperature Display | d11 | Inlet temperature shown on dashboard |
+| Humidity Display | d12 | Inlet humidity shown on dashboard |
+
+### Relay Mapping (R1-R8)
+
+Physical relay labels map to device IDs:
+
+| Physical Label | Device ID | Description |
+|----------------|-----------|-------------|
+| R1 | i4 | - |
+| R2 | i1 | - |
+| R3 | i2 | - |
+| R4 | i3 | - |
+| R5 | i8 | - |
+| R6 | i5 | - |
+| R7 | i6 | - |
+| R8 | i7 | - |
+
+**Note:** i9 and i10 are not connected/used.
+
+---
+
+## 12. Troubleshooting Guide
 
 ### Frontend Issues
 
@@ -770,7 +826,7 @@ git push
 
 ---
 
-## 12. Useful Commands
+## 13. Useful Commands
 
 ### Local Development
 
@@ -847,7 +903,7 @@ aws ec2 describe-instances --instance-ids i-0b8540c8289662cf6
 
 ---
 
-## 13. URLs and Endpoints
+## 14. URLs and Endpoints
 
 ### Production URLs
 
@@ -882,7 +938,7 @@ aws ec2 describe-instances --instance-ids i-0b8540c8289662cf6
 
 ---
 
-## 14. Security Configuration
+## 15. Security Configuration
 
 ### EC2 Security Group
 

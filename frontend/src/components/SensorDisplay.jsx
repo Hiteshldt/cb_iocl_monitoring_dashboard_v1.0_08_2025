@@ -1,24 +1,28 @@
 import { Thermometer, Droplets, Wind, Activity } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
+// Sensor Labels based on actual device mapping:
+// d1-d8 = Outlet (Inside Device)
+// d9-d16 = Inlet (Outside Device)
 const SENSOR_LABELS = {
-  d1: { label: 'Inlet CO₂', unit: 'ppm', icon: Wind },
-  d2: { label: 'Inlet Dust PM', unit: 'µg/m³', icon: Activity },
-  d3: { label: 'Inlet Temperature', unit: '°C', icon: Thermometer },
-  d4: { label: 'Inlet Humidity', unit: '%', icon: Droplets },
-  d5: { label: 'Inlet pH', unit: 'pH', icon: Droplets },
-  d6: { label: 'Inlet Water Level', unit: '', icon: Droplets },
-  d7: { label: 'Inlet Water Temperature', unit: '°C', icon: Thermometer },
-  d8: { label: 'Outlet CO₂', unit: 'ppm', icon: Wind },
-  d9: { label: 'Outlet Dust PM', unit: 'µg/m³', icon: Activity },
-  d10: { label: 'Outlet Temperature', unit: '°C', icon: Thermometer },
-  d11: { label: 'Outlet Humidity', unit: '%', icon: Droplets },
-  d12: { label: 'Outlet Water pH', unit: 'pH', icon: Droplets },
-  d13: { label: 'Outlet Water Level', unit: '', icon: Droplets },
-  d14: { label: 'Outlet Water Temperature', unit: '°C', icon: Thermometer },
-  d38: { label: 'GSM Signal', unit: '', icon: Activity },
-  d39: { label: 'Software Version', unit: '', icon: Activity },
-  d40: { label: 'Hardware Version', unit: '', icon: Activity },
+  // Outlet sensors (d1-d8) - Inside Device
+  d1: { label: 'Outlet CO₂', unit: 'ppm', icon: Wind },
+  d2: { label: 'Outlet PM2.5', unit: 'µg/m³', icon: Activity },
+  d3: { label: 'Outlet Temperature', unit: '°C', icon: Thermometer },
+  d4: { label: 'Outlet Humidity', unit: '%', icon: Droplets },
+  d5: { label: 'Outlet pH', unit: 'pH', icon: Droplets },
+  d6: { label: 'Outlet Water Level', unit: '', icon: Droplets },
+  d7: { label: 'Outlet Water Temp', unit: '°C', icon: Thermometer },
+  d8: { label: 'Outlet O₂', unit: '%', icon: Wind },
+  // Inlet sensors (d9-d16) - Outside Device
+  d9: { label: 'Inlet CO₂', unit: 'ppm', icon: Wind },
+  d10: { label: 'Inlet PM2.5', unit: 'µg/m³', icon: Activity },
+  d11: { label: 'Inlet Temperature', unit: '°C', icon: Thermometer },
+  d12: { label: 'Inlet Humidity', unit: '%', icon: Droplets },
+  d13: { label: 'Inlet pH', unit: 'pH', icon: Droplets },
+  d14: { label: 'Inlet Water Level', unit: '', icon: Droplets },
+  d15: { label: 'Inlet Water Temp', unit: '°C', icon: Thermometer },
+  d16: { label: 'Inlet O₂', unit: '%', icon: Wind },
 };
 
 const SensorDisplay = ({ data, deviceStatus = {} }) => {
@@ -31,9 +35,10 @@ const SensorDisplay = ({ data, deviceStatus = {} }) => {
 
   if (!data) return null;
 
-  const inletSensors = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7'];
-  const outletSensors = ['d8', 'd9', 'd10', 'd11', 'd12', 'd13', 'd14'];
-  const systemInfo = ['d38', 'd39', 'd40'];
+  // Outlet sensors (d1-d8) - Inside Device
+  const outletSensors = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8'];
+  // Inlet sensors (d9-d16) - Outside Device
+  const inletSensors = ['d9', 'd10', 'd11', 'd12', 'd13', 'd14', 'd15', 'd16'];
 
   const renderSensorGroup = (title, sensors, accentColor, iconColor) => (
     <div className="mb-4">
@@ -120,9 +125,8 @@ const SensorDisplay = ({ data, deviceStatus = {} }) => {
 
       {/* Content */}
       <div className="p-4">
-        {renderSensorGroup('Inlet Sensors', inletSensors, 'bg-iocl-orange', 'text-iocl-orange')}
-        {renderSensorGroup('Outlet Sensors', outletSensors, 'bg-iocl-blue', 'text-iocl-blue')}
-        {renderSensorGroup('System Information', systemInfo, 'bg-slate-500', isDark ? 'text-slate-400' : 'text-gray-500')}
+        {renderSensorGroup('Inlet Sensors (Outside)', inletSensors, 'bg-iocl-orange', 'text-iocl-orange')}
+        {renderSensorGroup('Outlet Sensors (Inside)', outletSensors, 'bg-iocl-blue', 'text-iocl-blue')}
       </div>
     </div>
   );

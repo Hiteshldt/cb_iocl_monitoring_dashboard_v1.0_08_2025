@@ -143,17 +143,25 @@ class CalculationsService {
 
   /**
    * Calculate AQI from sensor data
-   * @param {Object} data - Sensor data with d1 (CO2), d2 (PM), d3 (Temp), d4 (Humidity)
+   * Uses INLET sensor values (d9-d12) to measure incoming air quality
+   *
+   * Sensor Mapping:
+   * - d9  = Inlet CO₂ (Outside Device)
+   * - d10 = Inlet PM2.5 (Outside Device)
+   * - d11 = Inlet Temperature (Outside Device)
+   * - d12 = Inlet Humidity (Outside Device)
+   *
+   * @param {Object} data - Sensor data
    * @returns {Object} - AQI value and category
    */
   calculateAQI(data) {
     const weights = formulas.aqi.weights;
 
-    // Get inlet sensor values
-    const co2 = data.d1 || 0;      // Inlet CO2 (ppm)
-    const pm = data.d2 || 0;       // Inlet Dust PM (µg/m³)
-    const temp = data.d3 || 25;    // Inlet Temperature (°C)
-    const humidity = data.d4 || 50; // Inlet Humidity (%)
+    // Get INLET sensor values (d9-d12) - Outside Device
+    const co2 = data.d9 || 0;       // Inlet CO2 (ppm)
+    const pm = data.d10 || 0;       // Inlet PM2.5 (µg/m³)
+    const temp = data.d11 || 25;    // Inlet Temperature (°C)
+    const humidity = data.d12 || 50; // Inlet Humidity (%)
 
     // Calculate sub-indices
     const co2SubIndex = this.calculateSubIndex(co2, formulas.aqi.co2Breakpoints);
@@ -206,20 +214,28 @@ class CalculationsService {
 
   /**
    * Calculate CO2 absorbed and O2 generated
-   * @param {Object} data - Sensor data with inlet (d1) and outlet (d8) CO2
+   *
+   * Sensor Mapping:
+   * - d9 = Inlet CO₂ (Outside Device) - Air coming IN
+   * - d1 = Outlet CO₂ (Inside Device) - Air going OUT (after processing)
+   *
+   * CO2 Absorption = Inlet CO2 - Outlet CO2
+   * (If device is absorbing CO2, inlet should be higher than outlet)
+   *
+   * @param {Object} data - Sensor data
    * @returns {Object} - CO2 absorbed (grams) and O2 generated (liters) in this interval
    */
   calculateGasExchange(data) {
     const now = new Date();
-    const inletCO2 = data.d1 || 0;   // Inlet CO2 (ppm)
-    const outletCO2 = data.d8 || 0;  // Outlet CO2 (ppm)
+    const inletCO2 = data.d9 || 0;   // Inlet CO2 (ppm) - Outside Device
+    const outletCO2 = data.d1 || 0;  // Outlet CO2 (ppm) - Inside Device
 
     // CO2 absorption (ppm) = Inlet - Outlet (inlet is higher before absorption)
     // Clamped to never go negative (can't have negative absorption)
     const co2Diff = Math.max(0, inletCO2 - outletCO2);
 
     // Debug logging for CO2 calculation
-    console.log(`[CO2] Inlet: ${inletCO2} ppm, Outlet: ${outletCO2} ppm, Diff: ${co2Diff} ppm`);
+    console.log(`[CO2] Inlet (d9): ${inletCO2} ppm, Outlet (d1): ${outletCO2} ppm, Diff: ${co2Diff} ppm`);
 
     // Skip if difference is zero or below threshold (no absorption happening)
     if (co2Diff <= formulas.co2.minimumDifference) {
@@ -364,14 +380,15 @@ class CalculationsService {
       serverTimestamp: new Date().toISOString(),
 
       // Calculated values
+      // Sensor Mapping: d9-d12 = Inlet (Outside), d1-d8 = Outlet (Inside)
       calculated: {
         aqi,
-        temperature: data.d3 || 0,
-        humidity: data.d4 || 0,
+        temperature: data.d11 || 0,   // Inlet Temperature (Outside)
+        humidity: data.d12 || 0,      // Inlet Humidity (Outside)
         co2: {
-          inlet: data.d1 || 0,
-          outlet: data.d8 || 0,
-          difference: Math.max(0, (data.d1 || 0) - (data.d8 || 0)), // Inlet - Outlet = absorption
+          inlet: data.d9 || 0,        // Inlet CO2 (Outside Device)
+          outlet: data.d1 || 0,       // Outlet CO2 (Inside Device)
+          difference: Math.max(0, (data.d9 || 0) - (data.d1 || 0)), // Inlet - Outlet = absorption
           absorbedGrams: gasExchange.totalCO2Grams,
           intervalGrams: gasExchange.intervalCO2Grams
         },

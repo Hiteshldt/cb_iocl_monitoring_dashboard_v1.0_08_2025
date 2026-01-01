@@ -39,27 +39,35 @@ const logger = require('../utils/logger');
 // ============================================================================
 
 const SENSOR_TRANSFORMS = {
-  // -------------------------------------------------------------------------
-  // INLET SENSORS (d1-d7)
-  // -------------------------------------------------------------------------
-  // d1: { type: 'none' },                     // Inlet CO2 (ppm)
-  // d2: { type: 'none' },                     // Inlet Dust PM (µg/m³)
-  // d3: { type: 'none' },                     // Inlet Temperature (°C)
-  // d4: { type: 'none' },                     // Inlet Humidity (%)
-  // d5: { type: 'none' },                     // Inlet pH
-  // d6: { type: 'none' },                     // Inlet Water Level
-  // d7: { type: 'none' },                     // Inlet Water Temp
+  // ============================================================================
+  // SENSOR MAPPING (as of Dec 2025):
+  // d1-d8  = OUTLET (Inside Device) - Slave 2
+  // d9-d16 = INLET (Outside Device) - Slave 1
+  // ============================================================================
 
   // -------------------------------------------------------------------------
-  // OUTLET SENSORS (d8-d14)
+  // OUTLET SENSORS (d1-d8) - Inside Device
   // -------------------------------------------------------------------------
-  // d8: { type: 'none' },                     // Outlet CO2 (ppm)
-  // d9: { type: 'none' },                     // Outlet Dust PM (µg/m³)
-  // d10: { type: 'none' },                    // Outlet Temperature (°C)
-  // d11: { type: 'none' },                    // Outlet Humidity (%)
-  // d12: { type: 'none' },                    // Outlet Water pH
-  // d13: { type: 'none' },                    // Outlet Water Level
-  // d14: { type: 'none' },                    // Outlet Water Temp
+  // d1: { type: 'none' },                     // Outlet CO₂ (ppm)
+  // d2: { type: 'none' },                     // Outlet PM2.5 (µg/m³)
+  // d3: { type: 'none' },                     // Outlet Temperature (°C)
+  // d4: { type: 'none' },                     // Outlet Humidity (%)
+  // d5: { type: 'none' },                     // Outlet pH
+  // d6: { type: 'none' },                     // Outlet Water Level
+  // d7: { type: 'none' },                     // Outlet Water Temp
+  // d8: { type: 'none' },                     // Outlet O₂ (%)
+
+  // -------------------------------------------------------------------------
+  // INLET SENSORS (d9-d16) - Outside Device
+  // -------------------------------------------------------------------------
+  // d9: { type: 'none' },                     // Inlet CO₂ (ppm)
+  // d10: { type: 'none' },                    // Inlet PM2.5 (µg/m³)
+  // d11: { type: 'none' },                    // Inlet Temperature (°C)
+  // d12: { type: 'none' },                    // Inlet Humidity (%)
+  // d13: { type: 'none' },                    // Inlet pH
+  // d14: { type: 'none' },                    // Inlet Water Level
+  // d15: { type: 'none' },                    // Inlet Water Temp
+  // d16: { type: 'none' },                    // Inlet O₂ (%)
 
   // -------------------------------------------------------------------------
   // ADDITIONAL SENSORS (d15-d40)
@@ -89,9 +97,9 @@ const SENSOR_TRANSFORMS = {
 // Each display slot can be mapped to a sensor value with optional transformation.
 //
 // Current mapping:
-// i11 = AQI (calculated)
-// i12 = Temperature (d10 - outlet temp)
-// i13 = Humidity (d11 - outlet humidity)
+// i11 = AQI (calculated from inlet sensors d9-d12)
+// i12 = Temperature (d11 - inlet temp)
+// i13 = Humidity (d12 - inlet humidity)
 // i14 = CO2 Reduced (grams)
 // i15 = O2 Generated (liters)
 // i16 = Day (DD)
@@ -349,12 +357,13 @@ class DataTransformerService {
 
   /**
    * Simple AQI calculation fallback
+   * Uses INLET sensor values (d9-d12) - Outside Device
    */
   calculateSimpleAQI(data) {
-    const co2 = data.d8 || 0;
-    const pm = data.d9 || 0;
-    const temp = data.d10 || 0;
-    const humidity = data.d11 || 0;
+    const co2 = data.d9 || 0;       // Inlet CO₂
+    const pm = data.d10 || 0;       // Inlet PM2.5
+    const temp = data.d11 || 0;     // Inlet Temperature
+    const humidity = data.d12 || 0; // Inlet Humidity
 
     let aqi = (co2 * 0.4) + (pm * 0.4) + (temp * 0.1) + (humidity * 0.1);
     return Math.max(0, Math.min(500, Math.round(aqi)));
