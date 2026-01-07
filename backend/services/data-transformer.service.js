@@ -48,46 +48,82 @@ const SENSOR_TRANSFORMS = {
   // -------------------------------------------------------------------------
   // OUTLET SENSORS (d1-d8) - Inside Device
   // -------------------------------------------------------------------------
-  // d1: { type: 'none' },                     // Outlet CO₂ (ppm)
-  // d2: { type: 'none' },                     // Outlet PM2.5 (µg/m³)
-  // d3: { type: 'none' },                     // Outlet Temperature (°C)
-  // d4: { type: 'none' },                     // Outlet Humidity (%)
-  // d5: { type: 'none' },                     // Outlet pH
-  // d6: { type: 'none' },                     // Outlet Water Level
-  // d7: { type: 'none' },                     // Outlet Water Temp
-  // d8: { type: 'none' },                     // Outlet O₂ (%)
+  d1: { type: 'calibrate', offset: -50 },      // Outlet CO₂ (ppm) - calibration offset
+  // d2: { type: 'none' },                     // Outlet PM2.5 (µg/m³) - no transform needed
+
+  // Outlet Temperature (°C) - Steinhart-Hart thermistor equation
+  d3: {
+    type: 'formula',
+    fn: (x) => {
+      if (x <= 0) return 0;
+      const voltage = x * 3.3 / 4096.0;
+      const resistance = 10000.0 * (3.3 - voltage) / voltage;
+      const logR = Math.log(resistance / 46500.0);
+      const tempKelvin = 1.0 / ((logR / 3435.0) + (1.0 / 298.15));
+      return 1.71 * (tempKelvin - 273.15) - 17.7;
+    }
+  },
+
+  // Outlet Humidity (%) - ADC to humidity conversion
+  d4: {
+    type: 'formula',
+    fn: (x) => (x * (3.3 / 4096.0) * 6) / 0.03
+  },
+
+  // Outlet pH - ADC to pH conversion
+  d5: {
+    type: 'formula',
+    fn: (x) => 4.347 * (x * (3.3 / 4096)) + 0.08827
+  },
+
+  // d6: { type: 'none' },                     // Outlet Water Level - no transform needed
+  // d7: { type: 'none' },                     // Outlet Water Temp - no transform needed
+
+  // Outlet O₂ (%) - Slave 2 formula
+  d8: {
+    type: 'formula',
+    fn: (x) => (x - 240) / 1.196
+  },
 
   // -------------------------------------------------------------------------
   // INLET SENSORS (d9-d16) - Outside Device
   // -------------------------------------------------------------------------
-  // d9: { type: 'none' },                     // Inlet CO₂ (ppm)
-  // d10: { type: 'none' },                    // Inlet PM2.5 (µg/m³)
-  // d11: { type: 'none' },                    // Inlet Temperature (°C)
-  // d12: { type: 'none' },                    // Inlet Humidity (%)
-  // d13: { type: 'none' },                    // Inlet pH
-  // d14: { type: 'none' },                    // Inlet Water Level
-  // d15: { type: 'none' },                    // Inlet Water Temp
-  // d16: { type: 'none' },                    // Inlet O₂ (%)
+  // d9: { type: 'none' },                     // Inlet CO₂ (ppm) - no transform needed
+  // d10: { type: 'none' },                    // Inlet PM2.5 (µg/m³) - no transform needed
 
-  // -------------------------------------------------------------------------
-  // ADDITIONAL SENSORS (d15-d40)
-  // -------------------------------------------------------------------------
-  // Add more sensor transformations as needed...
+  // Inlet Temperature (°C) - Steinhart-Hart thermistor equation
+  d11: {
+    type: 'formula',
+    fn: (x) => {
+      if (x <= 0) return 0;
+      const voltage = x * 3.3 / 4096.0;
+      const resistance = 10000.0 * (3.3 - voltage) / voltage;
+      const logR = Math.log(resistance / 46500.0);
+      const tempKelvin = 1.0 / ((logR / 3435.0) + (1.0 / 298.15));
+      return 1.71 * (tempKelvin - 273.15) - 17.7;
+    }
+  },
 
-  // -------------------------------------------------------------------------
-  // EXAMPLE TRANSFORMATIONS (uncomment to use)
-  // -------------------------------------------------------------------------
-  // d1: { type: 'calibrate', offset: 0, scale: 1.0 },
-  // d2: { type: 'round', decimals: 1 },
-  // d3: { type: 'chain', transforms: [
-  //   { type: 'offset', value: -0.5 },
-  //   { type: 'round', decimals: 1 }
-  // ]},
-  // d8: { type: 'formula', fn: (val, allData) => {
-  //   // Custom formula example: adjust based on another sensor
-  //   return val * 0.95;
-  // }},
-  d1: {type: 'calibrate', offset:-50}
+  // Inlet Humidity (%) - ADC to humidity conversion
+  d12: {
+    type: 'formula',
+    fn: (x) => (x * (3.3 / 4096.0) * 6) / 0.03
+  },
+
+  // Inlet pH - ADC to pH conversion
+  d13: {
+    type: 'formula',
+    fn: (x) => 4.347 * (x * (3.3 / 4096)) + 0.08827
+  },
+
+  // d14: { type: 'none' },                    // Inlet Water Level - no transform needed
+  // d15: { type: 'none' },                    // Inlet Water Temp - no transform needed
+
+  // Inlet O₂ (%) - Slave 1 formula
+  d16: {
+    type: 'formula',
+    fn: (x) => (x - 248) / 1.196
+  }
 };
 
 // ============================================================================
