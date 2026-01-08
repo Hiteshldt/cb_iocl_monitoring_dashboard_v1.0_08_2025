@@ -10,18 +10,15 @@ const SENSOR_LABELS = {
   d2: { label: 'Outlet PM2.5', unit: 'µg/m³', icon: Activity },
   d3: { label: 'Outlet Temperature', unit: '°C', icon: Thermometer },
   d4: { label: 'Outlet Humidity', unit: '%', icon: Droplets },
-  d5: { label: 'Outlet pH', unit: 'pH', icon: Droplets },
-  d6: { label: 'Outlet Water Level', unit: '', icon: Droplets },
-  d7: { label: 'Outlet Water Temp', unit: '°C', icon: Thermometer },
+  d5: { label: 'pH', unit: 'pH', icon: Droplets },
+  d6: { label: 'Water Level', unit: '', icon: Droplets },
+  d7: { label: 'Water Temp', unit: '°C', icon: Thermometer },
   d8: { label: 'Outlet O₂', unit: '%', icon: Wind },
   // Inlet sensors (d9-d16) - Outside Device
   d9: { label: 'Inlet CO₂', unit: 'ppm', icon: Wind },
   d10: { label: 'Inlet PM2.5', unit: 'µg/m³', icon: Activity },
   d11: { label: 'Inlet Temperature', unit: '°C', icon: Thermometer },
   d12: { label: 'Inlet Humidity', unit: '%', icon: Droplets },
-  d13: { label: 'Inlet pH', unit: 'pH', icon: Droplets },
-  d14: { label: 'Inlet Water Level', unit: '', icon: Droplets },
-  d15: { label: 'Inlet Water Temp', unit: '°C', icon: Thermometer },
   d16: { label: 'Inlet O₂', unit: '%', icon: Wind },
 };
 
@@ -37,8 +34,8 @@ const SensorDisplay = ({ data, deviceStatus = {} }) => {
 
   // Outlet sensors (d1-d8) - Inside Device
   const outletSensors = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8'];
-  // Inlet sensors (d9-d16) - Outside Device
-  const inletSensors = ['d9', 'd10', 'd11', 'd12', 'd13', 'd14', 'd15', 'd16'];
+  // Inlet sensors (d9-d12, d16) - Outside Device (d13, d14, d15 hidden)
+  const inletSensors = ['d9', 'd10', 'd11', 'd12', 'd16'];
 
   const renderSensorGroup = (title, sensors, accentColor, iconColor) => (
     <div className="mb-4">

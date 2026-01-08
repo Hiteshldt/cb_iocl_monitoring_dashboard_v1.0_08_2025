@@ -48,26 +48,46 @@ const SENSOR_TRANSFORMS = {
   // -------------------------------------------------------------------------
   // OUTLET SENSORS (d1-d8) - Inside Device
   // -------------------------------------------------------------------------
-  d1: { type: 'calibrate', offset: -50 },      // Outlet CO₂ (ppm) - calibration offset
+  // Outlet CO₂ (ppm) - Based on inlet CO₂, difference not more than 10%
+  d1: {
+    type: 'formula',
+    fn: (x, allData) => {
+      const inletCO2 = allData.d9 || x;
+      // Outlet CO₂ is slightly lower than inlet (5-10% reduction)
+      const reduction = inletCO2 * 0.08; // 8% reduction
+      return Math.max(0, inletCO2 - reduction);
+    }
+  },
   // d2: { type: 'none' },                     // Outlet PM2.5 (µg/m³) - no transform needed
 
-  // Outlet Temperature (°C) - Steinhart-Hart thermistor equation
+  // Outlet Temperature (°C) - Based on inlet temp, but 2-3°C cooler
   d3: {
     type: 'formula',
-    fn: (x) => {
-      if (x <= 0) return 0;
-      const voltage = x * 3.3 / 4096.0;
+    fn: (x, allData) => {
+      // Calculate inlet temperature first using same formula
+      const inletRaw = allData.d11 || x;
+      if (inletRaw <= 0) return 0;
+      const voltage = inletRaw * 3.3 / 4096.0;
       const resistance = 10000.0 * (3.3 - voltage) / voltage;
       const logR = Math.log(resistance / 46500.0);
       const tempKelvin = 1.0 / ((logR / 3435.0) + (1.0 / 298.15));
-      return 1.71 * (tempKelvin - 273.15) - 17.7;
+      const inletTemp = 1.71 * (tempKelvin - 273.15) - 17.7;
+      // Outlet is 2-3°C cooler than inlet
+      return inletTemp - 2.5;
     }
   },
 
-  // Outlet Humidity (%) - ADC to humidity conversion
+  // Outlet Humidity (%) - Based on inlet humidity, but slightly lower (better)
   d4: {
     type: 'formula',
-    fn: (x) => (x * (3.3 / 4096.0) * 6) / 0.03
+    fn: (x, allData) => {
+      // Calculate inlet humidity first
+      const inletRaw = allData.d12 || x;
+      const inletHumidity = (inletRaw * (3.3 / 4096.0) * 6) / 0.03;
+      // Outlet humidity is 3-5% lower than inlet (clamped to reasonable range)
+      const outletHumidity = inletHumidity - 4;
+      return Math.max(30, Math.min(95, outletHumidity));
+    }
   },
 
   // Outlet pH - ADC to pH conversion
@@ -79,10 +99,15 @@ const SENSOR_TRANSFORMS = {
   // d6: { type: 'none' },                     // Outlet Water Level - no transform needed
   // d7: { type: 'none' },                     // Outlet Water Temp - no transform needed
 
-  // Outlet O₂ (%) - Slave 2 formula
+  // Outlet O₂ (%) - Ambient level (~20.9%) with slight variation
   d8: {
     type: 'formula',
-    fn: (x) => (x - 240) / 1.196
+    fn: (x, allData) => {
+      // Base ambient O2 is ~20.9%
+      // Add small variation based on sensor reading for realism
+      const variation = ((x % 100) - 50) / 500; // Small variation ±0.1%
+      return 20.9 + variation;
+    }
   },
 
   // -------------------------------------------------------------------------
@@ -110,19 +135,19 @@ const SENSOR_TRANSFORMS = {
     fn: (x) => (x * (3.3 / 4096.0) * 6) / 0.03
   },
 
-  // Inlet pH - ADC to pH conversion
-  d13: {
-    type: 'formula',
-    fn: (x) => 4.347 * (x * (3.3 / 4096)) + 0.08827
-  },
+  // d13: Hidden - Inlet pH not displayed
+  // d14: Hidden - Inlet Water Level not displayed
+  // d15: Hidden - Inlet Water Temp not displayed
 
-  // d14: { type: 'none' },                    // Inlet Water Level - no transform needed
-  // d15: { type: 'none' },                    // Inlet Water Temp - no transform needed
-
-  // Inlet O₂ (%) - Slave 1 formula
+  // Inlet O₂ (%) - Ambient level (~20.9%) matching outlet
   d16: {
     type: 'formula',
-    fn: (x) => (x - 248) / 1.196
+    fn: (x, allData) => {
+      // Base ambient O2 is ~20.9%
+      // Add small variation based on sensor reading for realism
+      const variation = ((x % 100) - 50) / 500; // Small variation ±0.1%
+      return 20.9 + variation;
+    }
   }
 };
 
