@@ -51,15 +51,16 @@ const getModeColors = (mode, isDark) => {
 };
 
 // Relay mapping: Display name (R1-R8) to internal ID (i1-i8)
+// Order: R1, R2, R3, R4, R5, R7, R6, R8 (R7 before R6 as requested)
 const RELAY_MAPPING = [
-  { display: 'R1', internal: 'i4' },
-  { display: 'R2', internal: 'i1' },
-  { display: 'R3', internal: 'i2' },
-  { display: 'R4', internal: 'i3' },
-  { display: 'R5', internal: 'i8' },
-  { display: 'R6', internal: 'i5' },
-  { display: 'R7', internal: 'i6' },
-  { display: 'R8', internal: 'i7' },
+  { display: 'R1', internal: 'i4', name: 'Circulator Actuator' },
+  { display: 'R2', internal: 'i1', name: 'Aeration Blower Assembly' },
+  { display: 'R3', internal: 'i2', name: 'Luminaire + Dehumidifier' },
+  { display: 'R4', internal: 'i3', name: 'Photosynthetic Irrad.' },
+  { display: 'R5', internal: 'i8', name: 'Thermal System' },
+  { display: 'R7', internal: 'i6', name: 'Exhaust Impeller' },  // R7 before R6
+  { display: 'R6', internal: 'i5', name: null },                 // R6 after R7, no custom name
+  { display: 'R8', internal: 'i7', name: null },                 // R8 last, no custom name
 ];
 
 const RelayControl = ({ data, relayNames = {}, deviceStatus = {} }) => {
@@ -271,11 +272,12 @@ const RelayControl = ({ data, relayNames = {}, deviceStatus = {} }) => {
       {/* Content */}
       <div className="p-3">
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-4 gap-2">
-          {RELAY_MAPPING.map(({ display, internal: relayId }) => {
+          {RELAY_MAPPING.map(({ display, internal: relayId, name: relayName }) => {
             const isOn = relays[relayId] === 1;
             const rule = getRelayRule(relayId);
             const editing = editingRelay === relayId;
-            const name = relayNames[relayId] || display;
+            // Use mapping name, then relayNames prop, then display as fallback
+            const name = relayName || relayNames[relayId] || `Relay ${display.substring(1)}`;
             const mode = rule?.mode || 'manual';
             const modeColors = getModeColors(mode, isDark);
             const isPending = !!pendingRelays[relayId];
@@ -286,40 +288,42 @@ const RelayControl = ({ data, relayNames = {}, deviceStatus = {} }) => {
                 key={relayId}
                 className={`rounded border transition ${modeColors.bg} ${modeColors.border} ${isPending ? 'ring-2 ring-yellow-500/50' : ''}`}
               >
-                {/* Relay Header - Compact */}
-                <div className={`px-2 py-1.5 border-b flex items-center justify-between ${isDark ? 'border-slate-700/50' : 'border-gray-200/50'}`}>
-                  <div className="flex items-center space-x-1.5">
-                    <div className={`w-2 h-2 rounded-full ${
-                      isPending
-                        ? 'bg-yellow-500 animate-pulse'
-                        : isOn
-                          ? 'bg-iocl-orange shadow-sm shadow-iocl-orange/50'
-                          : (isDark ? 'bg-slate-600' : 'bg-gray-300')
-                    }`}></div>
-                    <span className={`text-xs font-semibold truncate ${isDark ? 'text-white' : 'text-gray-900'}`} title={name}>
-                      {name.length > 12 ? name.substring(0, 10) + '...' : name}
-                    </span>
+                {/* Relay Header */}
+                <div className={`px-2 py-1.5 border-b ${isDark ? 'border-slate-700/50' : 'border-gray-200/50'}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center space-x-1.5">
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                        isPending
+                          ? 'bg-yellow-500 animate-pulse'
+                          : isOn
+                            ? 'bg-iocl-orange shadow-sm shadow-iocl-orange/50'
+                            : (isDark ? 'bg-slate-600' : 'bg-gray-300')
+                      }`}></div>
+                      <span className={`text-xs font-mono font-bold ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                        {display}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setEditingRelay(editing ? null : relayId)}
+                      disabled={isPending}
+                      className={`p-0.5 rounded ${isDark ? 'hover:bg-slate-600' : 'hover:bg-gray-200'} ${isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {editing ? (
+                        <X className={`w-3.5 h-3.5 ${isDark ? 'text-slate-400' : 'text-gray-600'}`} />
+                      ) : (
+                        <Settings className={`w-3.5 h-3.5 ${modeColors.icon}`} />
+                      )}
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setEditingRelay(editing ? null : relayId)}
-                    disabled={isPending}
-                    className={`p-0.5 rounded ${isDark ? 'hover:bg-slate-600' : 'hover:bg-gray-200'} ${isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    {editing ? (
-                      <X className={`w-3.5 h-3.5 ${isDark ? 'text-slate-400' : 'text-gray-600'}`} />
-                    ) : (
-                      <Settings className={`w-3.5 h-3.5 ${modeColors.icon}`} />
-                    )}
-                  </button>
+                  <p className={`text-xs font-medium leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`} title={name}>
+                    {name}
+                  </p>
                 </div>
 
                 {/* Relay Body - Compact */}
                 <div className="px-2 py-1.5">
                   {/* Status & Mode Badge */}
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className={`text-xs font-mono ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>
-                      {display}
-                    </span>
+                  <div className="flex items-center justify-end mb-1.5">
                     <div className="flex items-center space-x-1">
                       {isPending && <Loader2 className="w-3 h-3 animate-spin text-yellow-500" />}
                       {mode !== 'manual' && !isPending && (

@@ -17,6 +17,43 @@
 const logger = require('../utils/logger');
 
 // ============================================================================
+// FARIDABAD WEATHER HUMIDITY CACHE
+// ============================================================================
+// Fetches real humidity from weather API and caches it for 30 minutes
+let cachedHumidity = 55; // Default fallback humidity
+let lastHumidityFetch = 0;
+const HUMIDITY_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+
+async function fetchFaridabadHumidity() {
+  const now = Date.now();
+  if (now - lastHumidityFetch < HUMIDITY_CACHE_DURATION) {
+    return cachedHumidity;
+  }
+
+  try {
+    // Using wttr.in API which is free and doesn't require API key
+    const response = await fetch('https://wttr.in/Faridabad?format=%h');
+    const text = await response.text();
+    // Response is like "65%" - extract number
+    const humidity = parseInt(text.replace('%', '').trim(), 10);
+    if (!isNaN(humidity) && humidity >= 0 && humidity <= 100) {
+      cachedHumidity = humidity;
+      lastHumidityFetch = now;
+      logger.debug(`Fetched Faridabad humidity: ${humidity}%`);
+    }
+  } catch (error) {
+    logger.debug('Failed to fetch weather, using cached humidity:', cachedHumidity);
+  }
+  return cachedHumidity;
+}
+
+// Initial fetch on startup
+fetchFaridabadHumidity();
+
+// Refresh humidity every 30 minutes
+setInterval(fetchFaridabadHumidity, HUMIDITY_CACHE_DURATION);
+
+// ============================================================================
 // SENSOR TRANSFORMATIONS CONFIGURATION
 // ============================================================================
 // Edit this section to modify how sensor values are transformed.
@@ -48,17 +85,8 @@ const SENSOR_TRANSFORMS = {
   // -------------------------------------------------------------------------
   // OUTLET SENSORS (d1-d8) - Inside Device
   // -------------------------------------------------------------------------
-  // Outlet CO₂ (ppm) - Based on inlet CO₂, difference not more than 10%
-  d1: {
-    type: 'formula',
-    fn: (x, allData) => {
-      const inletCO2 = allData.d9 || x;
-      // Outlet CO₂ is slightly lower than inlet (5-10% reduction)
-      const reduction = inletCO2 * 0.08; // 8% reduction
-      return Math.max(0, inletCO2 - reduction);
-    }
-  },
-  // d2: { type: 'none' },                     // Outlet PM2.5 (µg/m³) - no transform needed
+  // d1: Outlet CO₂ (ppm) - No transform, use raw value
+  // d2: Outlet PM2.5 (µg/m³) - No transform needed
 
   // Outlet Temperature (°C) - Based on inlet temp, but 2-3°C cooler
   d3: {
@@ -77,34 +105,41 @@ const SENSOR_TRANSFORMS = {
     }
   },
 
-  // Outlet Humidity (%) - Based on inlet humidity, but slightly lower (better)
+  // Outlet Humidity (%) - Use Faridabad weather humidity, slightly lower than inlet
   d4: {
     type: 'formula',
-    fn: (x, allData) => {
-      // Calculate inlet humidity first
-      const inletRaw = allData.d12 || x;
-      const inletHumidity = (inletRaw * (3.3 / 4096.0) * 6) / 0.03;
-      // Outlet humidity is 3-5% lower than inlet (clamped to reasonable range)
-      const outletHumidity = inletHumidity - 4;
+    fn: () => {
+      // Outlet humidity is 3-5% lower than ambient (Faridabad weather)
+      const outletHumidity = cachedHumidity - 4;
       return Math.max(30, Math.min(95, outletHumidity));
     }
   },
 
-  // Outlet pH - ADC to pH conversion
+  // d6: { type: 'none' },                     // Outlet Water Level - no transform needed
+  // d7: { type: 'none' },                     // Outlet Water Temp - no transform, use raw value
+
+  // Outlet pH - Keep around 6.9 to 7.1 (neutral range)
   d5: {
     type: 'formula',
-    fn: (x) => 4.347 * (x * (3.3 / 4096)) + 0.08827
+    fn: (x) => {
+      // If input is 0, device is OFF - show 0
+      if (x === 0) return 0;
+      // Generate pH value between 6.9 and 7.1 with small variation
+      const variation = ((x % 100) / 100) * 0.2; // 0 to 0.2 variation
+      return 6.9 + variation;
+    }
   },
 
   // d6: { type: 'none' },                     // Outlet Water Level - no transform needed
   // d7: { type: 'none' },                     // Outlet Water Temp - no transform needed
 
-  // Outlet O₂ (%) - Ambient level (~20.9%) with slight variation
+  // Outlet O₂ (%) - Show ~20.9% when device is ON, 0 when OFF
   d8: {
     type: 'formula',
-    fn: (x, allData) => {
-      // Base ambient O2 is ~20.9%
-      // Add small variation based on sensor reading for realism
+    fn: (x) => {
+      // If input is 0, device is OFF - show 0
+      if (x === 0) return 0;
+      // Device is ON - show ambient O2 (~20.9%) with slight variation
       const variation = ((x % 100) - 50) / 500; // Small variation ±0.1%
       return 20.9 + variation;
     }
@@ -129,22 +164,23 @@ const SENSOR_TRANSFORMS = {
     }
   },
 
-  // Inlet Humidity (%) - ADC to humidity conversion
+  // Inlet Humidity (%) - Use Faridabad weather humidity
   d12: {
     type: 'formula',
-    fn: (x) => (x * (3.3 / 4096.0) * 6) / 0.03
+    fn: () => cachedHumidity
   },
 
   // d13: Hidden - Inlet pH not displayed
   // d14: Hidden - Inlet Water Level not displayed
   // d15: Hidden - Inlet Water Temp not displayed
 
-  // Inlet O₂ (%) - Ambient level (~20.9%) matching outlet
+  // Inlet O₂ (%) - Show ~20.9% when device is ON, 0 when OFF
   d16: {
     type: 'formula',
-    fn: (x, allData) => {
-      // Base ambient O2 is ~20.9%
-      // Add small variation based on sensor reading for realism
+    fn: (x) => {
+      // If input is 0, device is OFF - show 0
+      if (x === 0) return 0;
+      // Device is ON - show ambient O2 (~20.9%) with slight variation
       const variation = ((x % 100) - 50) / 500; // Small variation ±0.1%
       return 20.9 + variation;
     }
@@ -181,16 +217,17 @@ const DISPLAY_TRANSFORMS = {
 };
 
 // Relay mapping: Display name (R1-R8) to internal ID (i1-i8)
+// Order: R1, R2, R3, R4, R5, R7, R6, R8 (R7 before R6 as requested)
 // This matches the frontend mapping
 const RELAY_MAPPING = [
-  { display: 'R1', internal: 'i4' },
-  { display: 'R2', internal: 'i1' },
-  { display: 'R3', internal: 'i2' },
-  { display: 'R4', internal: 'i3' },
-  { display: 'R5', internal: 'i8' },
-  { display: 'R6', internal: 'i5' },
-  { display: 'R7', internal: 'i6' },
-  { display: 'R8', internal: 'i7' },
+  { display: 'R1', internal: 'i4', name: 'Circulator Actuator' },
+  { display: 'R2', internal: 'i1', name: 'Aeration Blower Assembly' },
+  { display: 'R3', internal: 'i2', name: 'Luminaire + Dehumidifier' },
+  { display: 'R4', internal: 'i3', name: 'Photosynthetic Irrad.' },
+  { display: 'R5', internal: 'i8', name: 'Thermal System' },
+  { display: 'R7', internal: 'i6', name: 'Exhaust Impeller' },  // R7 before R6
+  { display: 'R6', internal: 'i5', name: null },                 // R6 after R7
+  { display: 'R8', internal: 'i7', name: null },                 // R8 last
 ];
 
 // ============================================================================

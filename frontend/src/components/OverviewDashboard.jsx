@@ -39,15 +39,16 @@ const saveCachedValues = (values) => {
 };
 
 // Relay mapping: Display name (R1-R8) to internal ID (i1-i8)
+// Order: R1, R2, R3, R4, R5, R7, R6, R8 (R7 before R6 as requested)
 const RELAY_MAPPING = [
-  { display: 'R1', internal: 'i4' },
-  { display: 'R2', internal: 'i1' },
-  { display: 'R3', internal: 'i2' },
-  { display: 'R4', internal: 'i3' },
-  { display: 'R5', internal: 'i8' },
-  { display: 'R6', internal: 'i5' },
-  { display: 'R7', internal: 'i6' },
-  { display: 'R8', internal: 'i7' },
+  { display: 'R1', internal: 'i4', name: 'Circulator Actuator' },
+  { display: 'R2', internal: 'i1', name: 'Aeration Blower Assembly' },
+  { display: 'R3', internal: 'i2', name: 'Luminaire + Dehumidifier' },
+  { display: 'R4', internal: 'i3', name: 'Photosynthetic Irrad.' },
+  { display: 'R5', internal: 'i8', name: 'Thermal System' },
+  { display: 'R7', internal: 'i6', name: 'Exhaust Impeller' },  // R7 before R6
+  { display: 'R6', internal: 'i5', name: null },                 // R6 after R7, no custom name
+  { display: 'R8', internal: 'i7', name: null },                 // R8 last, no custom name
 ];
 
 const OverviewDashboard = ({ data, relayNames, deviceStatus = {} }) => {
@@ -329,9 +330,10 @@ const OverviewDashboard = ({ data, relayNames, deviceStatus = {} }) => {
           </div>
           <div className="px-4 py-3">
             <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-              {RELAY_MAPPING.map(({ display, internal: relayId }) => {
+              {RELAY_MAPPING.map(({ display, internal: relayId, name: relayName }) => {
                 const isOn = relays?.[relayId] === 1;
-                const name = relayNames?.[relayId] || display;
+                // Use mapping name, then relayNames prop, then "Relay X" as fallback
+                const name = relayName || relayNames?.[relayId] || `Relay ${display.substring(1)}`;
 
                 return (
                   <div
