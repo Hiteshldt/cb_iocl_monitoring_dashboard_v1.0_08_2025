@@ -21,7 +21,7 @@ module.exports = {
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
 
   // Intervals
-  DISPLAY_UPDATE_INTERVAL: parseInt(process.env.DISPLAY_UPDATE_INTERVAL || '10000'),
+  DISPLAY_UPDATE_INTERVAL: parseInt(process.env.DISPLAY_UPDATE_INTERVAL || '5000'),  // 5 seconds
 
   // ============================================================================
   // FEATURE TOGGLES

@@ -501,8 +501,8 @@ const RELAY_MAPPING = [
   { display: 'R4', internal: 'i3', name: 'Photosynthetic Irrad.' },
   { display: 'R5', internal: 'i8', name: 'Thermal System' },
   { display: 'R7', internal: 'i6', name: 'Exhaust Impeller' },  // R7 before R6
-  { display: 'R6', internal: 'i5', name: null },                 // R6 after R7
-  { display: 'R8', internal: 'i7', name: null },                 // R8 last
+  { display: 'R6', internal: 'i5', name: 'Relay-6' },            // R6 after R7
+  { display: 'R8', internal: 'i7', name: 'Relay-8' },            // R8 last
 ];
 
 // ============================================================================
@@ -664,11 +664,29 @@ class DataTransformerService {
     const calculated = processedData.calculated || {};
     const relays = processedData.relays || sensorData;
 
-    // Default display values
-    // i11 = AQI, i12 = TEMP, i13 = HUMI, i14 = CO2 REDUCED, i15 = O2 GENERATED
-    // i16 = DD, i17 = MM, i18 = YY, i19 = HH, i20 = MM (minute)
-    // i21 = Relay Modes (8-digit: 1=Manual, 2=Auto), i22 = Relay States (8-digit: 1=ON, 2=OFF)
+    // =========================================================================
+    // DISPLAY VALUES FOR LED SCREEN
+    // Sent every 5 seconds to the device
+    // =========================================================================
+    // i11 = AQI (calculated hybrid value from dashboard)
+    // i12 = Inlet Temperature (no decimal)
+    // i13 = Inlet Humidity (no decimal)
+    // i14 = Hour (24h format, Indian time, no leading zeros: 1 not 01)
+    // i15 = Minute (no leading zeros: 5 not 05)
+    // i16 = Day (no leading zeros)
+    // i17 = Month (no leading zeros)
+    // i18 = Year (last 2 digits: 26 for 2026)
+    // i19 = O2 at outlet (d8, no decimal)
+    // i20 = CO2 at outlet (d1, no decimal)
+    // i21 = Relay Modes (8-digit: 1=Manual, 2=Auto)
+    // i22 = Relay States (8-digit: 1=ON, 2=OFF)
+    // =========================================================================
+
+    // Get Indian Standard Time (UTC+5:30)
     const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+    const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
+    const istTime = new Date(utcTime + istOffset);
 
     // Build relay mode string (i21) and state string (i22) for R1-R8
     // 1 = Manual/ON, 2 = Auto/OFF
@@ -687,19 +705,27 @@ class DataTransformerService {
       relayStates += isOn ? '1' : '2';  // 1 = ON, 2 = OFF
     }
 
+    // Get transformed sensor values (these are the dashboard values)
+    // d11 = Inlet Temperature (transformed), d12 = Inlet Humidity (transformed)
+    // d1 = Outlet CO2, d8 = Outlet O2
+    const inletTemp = Math.round(sensorData.d11 || 0);      // Inlet Temperature (no decimal)
+    const inletHumidity = Math.round(sensorData.d12 || 0);  // Inlet Humidity (no decimal)
+    const outletCO2 = Math.round(sensorData.d1 || 0);       // Outlet CO2 (no decimal)
+    const outletO2 = Math.round(sensorData.d8 || 0);        // Outlet O2 (no decimal) - will be ~20.9 or 0
+
     const defaults = {
-      i11: calculated.aqi?.value || this.calculateSimpleAQI(sensorData),       // AQI
-      i12: Math.round(sensorData.d10 || 0),                                      // Temperature (outlet)
-      i13: Math.round(sensorData.d11 || 0),                                      // Humidity (outlet)
-      i14: Math.round((calculated.co2?.absorbedGrams || 0) * 100) / 100,         // CO2 Reduced (grams)
-      i15: Math.round((calculated.o2?.generatedLiters || 0) * 1000) / 1000,      // O2 Generated (liters)
-      i16: now.getDate(),                                                         // Day (DD)
-      i17: now.getMonth() + 1,                                                    // Month (MM)
-      i18: now.getFullYear() % 100,                                               // Year (YY)
-      i19: now.getHours(),                                                        // Hour (HH)
-      i20: now.getMinutes(),                                                      // Minute (MM)
-      i21: relayModes,                                                            // Relay Modes (8-digit string)
-      i22: relayStates                                                            // Relay States (8-digit string)
+      i11: Math.round(calculated.aqi?.value || this.calculateSimpleAQI()),      // AQI (hybrid calculated)
+      i12: inletTemp,                                                            // Inlet Temperature (no decimal)
+      i13: inletHumidity,                                                        // Inlet Humidity (no decimal)
+      i14: istTime.getHours(),                                                   // Hour (IST, 24h, no leading zero)
+      i15: istTime.getMinutes(),                                                 // Minute (no leading zero)
+      i16: istTime.getDate(),                                                    // Day (no leading zero)
+      i17: istTime.getMonth() + 1,                                               // Month (no leading zero)
+      i18: istTime.getFullYear() % 100,                                          // Year (last 2 digits: 26)
+      i19: outletO2,                                                             // Outlet O2 (no decimal)
+      i20: outletCO2,                                                            // Outlet CO2 (no decimal)
+      i21: relayModes,                                                           // Relay Modes (8-digit string)
+      i22: relayStates                                                           // Relay States (8-digit string)
     };
 
     // Apply any display overrides

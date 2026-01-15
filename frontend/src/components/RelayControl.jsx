@@ -59,8 +59,8 @@ const RELAY_MAPPING = [
   { display: 'R4', internal: 'i3', name: 'Photosynthetic Irrad.' },
   { display: 'R5', internal: 'i8', name: 'Thermal System' },
   { display: 'R7', internal: 'i6', name: 'Exhaust Impeller' },  // R7 before R6
-  { display: 'R6', internal: 'i5', name: null },                 // R6 after R7, no custom name
-  { display: 'R8', internal: 'i7', name: null },                 // R8 last, no custom name
+  { display: 'R6', internal: 'i5', name: 'Relay-6' },            // R6 after R7
+  { display: 'R8', internal: 'i7', name: 'Relay-8' },            // R8 last
 ];
 
 const RelayControl = ({ data, relayNames = {}, deviceStatus = {} }) => {

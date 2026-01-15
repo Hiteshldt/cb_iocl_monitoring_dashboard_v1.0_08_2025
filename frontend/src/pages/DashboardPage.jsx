@@ -531,7 +531,7 @@ const DashboardPage = () => {
                     Display Updates
                   </h3>
                   <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
-                    Send AQI/time data to device every {Math.round((displayStatus?.updateInterval || 0) / 1000)} seconds.
+                    Send display data (AQI, Temp, Humidity, Time, O₂, CO₂, Relay states) to LED screen every {Math.round((displayStatus?.updateInterval || 0) / 1000)} seconds.
                   </p>
                   {displayError && (
                     <p className="text-xs text-red-500 mt-1">{displayError}</p>

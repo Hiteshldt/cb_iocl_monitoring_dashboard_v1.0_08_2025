@@ -108,7 +108,7 @@ class DisplayService {
       // Send command to device
       await awsService.sendCommand(displayData);
 
-      logger.debug(`Display updated: AQI=${displayData.i11}, TEMP=${displayData.i12}°C, HUM=${displayData.i13}%, CO2=${displayData.i14}g, O2=${displayData.i15}L, ${displayData.i16}/${displayData.i17}/${displayData.i18} ${displayData.i19}:${displayData.i20}, Modes=${displayData.i21}, States=${displayData.i22}`);
+      logger.debug(`Display updated: AQI=${displayData.i11}, TEMP=${displayData.i12}°C, HUM=${displayData.i13}%, Time=${displayData.i14}:${displayData.i15} IST, Date=${displayData.i16}/${displayData.i17}/${displayData.i18}, O2=${displayData.i19}%, CO2=${displayData.i20}ppm, Modes=${displayData.i21}, States=${displayData.i22}`);
     } catch (error) {
       logger.error('Error updating display:', error.message);
     }
