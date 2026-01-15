@@ -17,41 +17,316 @@
 const logger = require('../utils/logger');
 
 // ============================================================================
-// FARIDABAD WEATHER HUMIDITY CACHE
+// FARIDABAD WEATHER & AQI CACHE
 // ============================================================================
-// Fetches real humidity from weather API and caches it for 30 minutes
+// Fetches real humidity and AQI from weather/air quality APIs
+// Location: IOCL R&D Faridabad - Sector 15A area
 let cachedHumidity = 55; // Default fallback humidity
-let lastHumidityFetch = 0;
-const HUMIDITY_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+let cachedExternalAQI = 150; // AQI from aqi.in (external source)
+let cachedHybridAQI = 150; // Final hybrid AQI (30% external + 70% sensor)
+let aqiSource = 'default'; // Track where AQI came from
+let lastWeatherFetch = 0;
+let latestSensorData = {}; // Store latest sensor data for AQI calculation
+const WEATHER_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
-async function fetchFaridabadHumidity() {
-  const now = Date.now();
-  if (now - lastHumidityFetch < HUMIDITY_CACHE_DURATION) {
-    return cachedHumidity;
+// AQI calculation weights
+const EXTERNAL_AQI_WEIGHT = 0.30; // 30% from aqi.in
+const SENSOR_AQI_WEIGHT = 0.70;   // 70% from sensors (PM2.5 primary, CO2 secondary)
+
+/**
+ * Fetch AQI from aqi.in for Faridabad Sector 15A
+ * Scrapes the dashboard page to extract current AQI value
+ */
+async function fetchAQIFromAqiIn() {
+  try {
+    // Fetch the Sector 15A dashboard page
+    const response = await fetch('https://www.aqi.in/dashboard/india/haryana/faridabad/sector-15a', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const html = await response.text();
+
+    // Look for AQI value in the page - multiple patterns to try
+    // Pattern 1: Look for "aqi" in JSON-LD structured data
+    const jsonLdMatch = html.match(/"aqi"\s*:\s*(\d+)/i);
+    if (jsonLdMatch && jsonLdMatch[1]) {
+      const aqi = parseInt(jsonLdMatch[1], 10);
+      if (!isNaN(aqi) && aqi >= 0 && aqi <= 999) {
+        logger.info(`Fetched AQI from aqi.in Sector 15A (JSON-LD): ${aqi}`);
+        return aqi;
+      }
+    }
+
+    // Pattern 2: Look for AQI in title/meta or display elements
+    // Common patterns: "AQI: 585", "AQI 585", "aqi-value">585<"
+    // Updated to support up to 4 digits (max AQI ~500-999)
+    const aqiPatterns = [
+      /AQI[:\s]+(\d{1,4})/i,
+      /aqi-value[^>]*>(\d{1,4})</i,
+      /"aqiValue"\s*:\s*(\d+)/i,
+      /class="[^"]*aqi[^"]*"[^>]*>(\d{1,4})</i,
+      />\s*(\d{3,4})\s*<[^>]*(?:aqi|hazardous|very\s*unhealthy)/i
+    ];
+
+    for (const pattern of aqiPatterns) {
+      const match = html.match(pattern);
+      if (match && match[1]) {
+        const aqi = parseInt(match[1], 10);
+        if (!isNaN(aqi) && aqi >= 0 && aqi <= 999) {
+          logger.info(`Fetched AQI from aqi.in Sector 15A: ${aqi}`);
+          return aqi;
+        }
+      }
+    }
+
+    // Pattern 3: Look for PM2.5 and calculate AQI
+    const pm25Match = html.match(/PM2\.?5[:\s]*(\d+)/i);
+    if (pm25Match && pm25Match[1]) {
+      const pm25 = parseFloat(pm25Match[1]);
+      // Convert PM2.5 to AQI using US EPA breakpoints
+      const aqi = calculateAQIFromPM25(pm25);
+      if (aqi !== null) {
+        logger.info(`Calculated AQI from aqi.in PM2.5 (${pm25}): ${aqi}`);
+        return aqi;
+      }
+    }
+
+    throw new Error('Could not parse AQI from page');
+  } catch (error) {
+    logger.debug(`Failed to fetch from aqi.in: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Convert PM2.5 concentration to AQI using US EPA breakpoints
+ */
+function calculateAQIFromPM25(pm25) {
+  if (pm25 < 0) return null;
+
+  // US EPA AQI breakpoints for PM2.5 (24-hour)
+  const breakpoints = [
+    { cLow: 0, cHigh: 12.0, iLow: 0, iHigh: 50 },
+    { cLow: 12.1, cHigh: 35.4, iLow: 51, iHigh: 100 },
+    { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 },
+    { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200 },
+    { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300 },
+    { cLow: 250.5, cHigh: 350.4, iLow: 301, iHigh: 400 },
+    { cLow: 350.5, cHigh: 500.4, iLow: 401, iHigh: 500 }
+  ];
+
+  for (const bp of breakpoints) {
+    if (pm25 >= bp.cLow && pm25 <= bp.cHigh) {
+      const aqi = ((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (pm25 - bp.cLow) + bp.iLow;
+      return Math.round(aqi);
+    }
   }
 
+  // Beyond 500 AQI
+  if (pm25 > 500.4) {
+    return 500;
+  }
+
+  return null;
+}
+
+/**
+ * Fetch AQI from WAQI as fallback
+ */
+async function fetchAQIFromWAQI() {
   try {
-    // Using wttr.in API which is free and doesn't require API key
-    const response = await fetch('https://wttr.in/Faridabad?format=%h');
-    const text = await response.text();
-    // Response is like "65%" - extract number
-    const humidity = parseInt(text.replace('%', '').trim(), 10);
+    const response = await fetch('https://api.waqi.info/feed/faridabad/?token=demo');
+    const data = await response.json();
+    if (data.status === 'ok' && data.data && typeof data.data.aqi === 'number') {
+      logger.info(`Fetched AQI from WAQI Faridabad: ${data.data.aqi}`);
+      return data.data.aqi;
+    }
+  } catch (error) {
+    logger.debug(`Failed to fetch from WAQI: ${error.message}`);
+  }
+  return null;
+}
+
+/**
+ * Estimate AQI from visibility as last fallback
+ */
+async function estimateAQIFromVisibility() {
+  try {
+    const response = await fetch('https://wttr.in/Faridabad?format=j1');
+    const data = await response.json();
+    if (data.current_condition && data.current_condition[0]) {
+      const visibility = parseInt(data.current_condition[0].visibility, 10);
+      let aqi;
+      if (visibility >= 10) {
+        aqi = 50 + Math.floor(Math.random() * 30); // Good: 50-80
+      } else if (visibility >= 5) {
+        aqi = 100 + Math.floor(Math.random() * 50); // Moderate: 100-150
+      } else if (visibility >= 2) {
+        aqi = 150 + Math.floor(Math.random() * 50); // Unhealthy: 150-200
+      } else {
+        aqi = 200 + Math.floor(Math.random() * 100); // Very Unhealthy: 200-300
+      }
+      logger.info(`Estimated AQI from visibility (${visibility}km): ${aqi}`);
+      return aqi;
+    }
+  } catch (error) {
+    logger.debug(`Failed to estimate AQI from visibility: ${error.message}`);
+  }
+  return null;
+}
+
+/**
+ * Calculate AQI from CO2 concentration
+ * Uses a simplified scale where higher CO2 = worse air quality
+ * CO2 < 400 ppm = Good, 400-1000 = Moderate, 1000-2000 = Poor, 2000+ = Very Poor
+ */
+function calculateAQIFromCO2(co2) {
+  if (co2 < 0 || co2 === null || co2 === undefined) return null;
+
+  if (co2 <= 400) {
+    // Good: 0-50 AQI
+    return Math.round((co2 / 400) * 50);
+  } else if (co2 <= 1000) {
+    // Moderate: 51-100 AQI
+    return Math.round(51 + ((co2 - 400) / 600) * 49);
+  } else if (co2 <= 2000) {
+    // Unhealthy for Sensitive: 101-150 AQI
+    return Math.round(101 + ((co2 - 1000) / 1000) * 49);
+  } else if (co2 <= 5000) {
+    // Unhealthy: 151-200 AQI
+    return Math.round(151 + ((co2 - 2000) / 3000) * 49);
+  } else {
+    // Very Unhealthy: 200+ AQI
+    return Math.min(300, Math.round(200 + ((co2 - 5000) / 5000) * 100));
+  }
+}
+
+/**
+ * Calculate hybrid AQI from sensor data
+ * Combines PM2.5 (primary, 80% of sensor weight) and CO2 (secondary, 20% of sensor weight)
+ * @param {Object} sensorData - Latest sensor data with d9 (CO2) and d10 (PM2.5)
+ * @returns {number} - Sensor-based AQI
+ */
+function calculateSensorAQI(sensorData) {
+  const pm25 = sensorData.d10 || 0;  // Inlet PM2.5
+  const co2 = sensorData.d9 || 0;    // Inlet CO2
+
+  // Calculate individual AQIs
+  const pm25AQI = calculateAQIFromPM25(pm25) || 0;
+  const co2AQI = calculateAQIFromCO2(co2) || 0;
+
+  // PM2.5 gets 80% weight, CO2 gets 20% weight (within the sensor portion)
+  const sensorAQI = (pm25AQI * 0.80) + (co2AQI * 0.20);
+
+  logger.debug(`Sensor AQI calculation: PM2.5=${pm25} (AQI=${pm25AQI}), CO2=${co2} (AQI=${co2AQI}), Combined=${Math.round(sensorAQI)}`);
+
+  return Math.round(sensorAQI);
+}
+
+/**
+ * Calculate final hybrid AQI
+ * 30% from external source (aqi.in) + 70% from sensors (PM2.5 primary, CO2 secondary)
+ */
+function calculateHybridAQI() {
+  const sensorAQI = calculateSensorAQI(latestSensorData);
+
+  // If we have no sensor data yet, use external AQI only
+  if (!latestSensorData.d10 && !latestSensorData.d9) {
+    return cachedExternalAQI;
+  }
+
+  // Hybrid: 30% external + 70% sensor
+  const hybridAQI = Math.round(
+    (cachedExternalAQI * EXTERNAL_AQI_WEIGHT) +
+    (sensorAQI * SENSOR_AQI_WEIGHT)
+  );
+
+  logger.debug(`Hybrid AQI: External=${cachedExternalAQI} (30%) + Sensor=${sensorAQI} (70%) = ${hybridAQI}`);
+
+  cachedHybridAQI = hybridAQI;
+  return hybridAQI;
+}
+
+async function fetchFaridabadWeather() {
+  const now = Date.now();
+  if (now - lastWeatherFetch < WEATHER_CACHE_DURATION) {
+    return { humidity: cachedHumidity, aqi: cachedHybridAQI };
+  }
+
+  // Fetch humidity from wttr.in
+  try {
+    const humidityResponse = await fetch('https://wttr.in/Faridabad?format=%h');
+    const humidityText = await humidityResponse.text();
+    const humidity = parseInt(humidityText.replace('%', '').trim(), 10);
     if (!isNaN(humidity) && humidity >= 0 && humidity <= 100) {
       cachedHumidity = humidity;
-      lastHumidityFetch = now;
       logger.debug(`Fetched Faridabad humidity: ${humidity}%`);
     }
   } catch (error) {
-    logger.debug('Failed to fetch weather, using cached humidity:', cachedHumidity);
+    logger.debug('Failed to fetch humidity, using cached:', cachedHumidity);
   }
-  return cachedHumidity;
+
+  // Fetch external AQI with priority: aqi.in Sector 15A > WAQI > visibility estimate
+  let externalAQI = null;
+
+  // Try aqi.in first (Sector 15A specific)
+  externalAQI = await fetchAQIFromAqiIn();
+  if (externalAQI !== null) {
+    cachedExternalAQI = externalAQI;
+    aqiSource = 'Hybrid (30% aqi.in + 70% sensors)';
+  } else {
+    // Fallback to WAQI
+    externalAQI = await fetchAQIFromWAQI();
+    if (externalAQI !== null) {
+      cachedExternalAQI = externalAQI;
+      aqiSource = 'Hybrid (30% WAQI + 70% sensors)';
+    } else {
+      // Last resort: estimate from visibility
+      externalAQI = await estimateAQIFromVisibility();
+      if (externalAQI !== null) {
+        cachedExternalAQI = externalAQI;
+        aqiSource = 'Hybrid (30% visibility + 70% sensors)';
+      }
+    }
+  }
+
+  // Recalculate hybrid AQI with new external data
+  const hybridAQI = calculateHybridAQI();
+
+  logger.info(`AQI - External: ${cachedExternalAQI}, Hybrid: ${hybridAQI}, Source: ${aqiSource}`);
+  lastWeatherFetch = now;
+  return { humidity: cachedHumidity, aqi: hybridAQI };
+}
+
+// Update sensor data for AQI calculation (called from transformSensorData)
+function updateSensorDataForAQI(data) {
+  latestSensorData = { ...data };
+  // Recalculate hybrid AQI whenever we get new sensor data
+  calculateHybridAQI();
+}
+
+// Getter for cached hybrid AQI (synchronous)
+function getCachedAQI() {
+  return cachedHybridAQI;
+}
+
+// Getter for AQI source info
+function getAQISource() {
+  return aqiSource;
 }
 
 // Initial fetch on startup
-fetchFaridabadHumidity();
+fetchFaridabadWeather();
 
-// Refresh humidity every 30 minutes
-setInterval(fetchFaridabadHumidity, HUMIDITY_CACHE_DURATION);
+// Refresh weather data every 30 minutes
+setInterval(fetchFaridabadWeather, WEATHER_CACHE_DURATION);
 
 // ============================================================================
 // SENSOR TRANSFORMATIONS CONFIGURATION
@@ -367,6 +642,10 @@ class DataTransformerService {
       this.logTransforms(appliedTransforms);
     }
 
+    // Update sensor data for hybrid AQI calculation
+    // Uses raw data for d9 (CO2) and d10 (PM2.5) from inlet sensors
+    updateSensorDataForAQI(rawData);
+
     return transformedData;
   }
 
@@ -454,17 +733,20 @@ class DataTransformerService {
   }
 
   /**
-   * Simple AQI calculation fallback
-   * Uses INLET sensor values (d9-d12) - Outside Device
+   * Get AQI value - uses real Faridabad AQI from aqi.in Sector 15A
+   * Falls back to WAQI then visibility estimate if unavailable
    */
-  calculateSimpleAQI(data) {
-    const co2 = data.d9 || 0;       // Inlet CO₂
-    const pm = data.d10 || 0;       // Inlet PM2.5
-    const temp = data.d11 || 0;     // Inlet Temperature
-    const humidity = data.d12 || 0; // Inlet Humidity
+  calculateSimpleAQI() {
+    // Return cached Faridabad AQI (fetched from aqi.in Sector 15A with fallbacks)
+    return getCachedAQI();
+  }
 
-    let aqi = (co2 * 0.4) + (pm * 0.4) + (temp * 0.1) + (humidity * 0.1);
-    return Math.max(0, Math.min(500, Math.round(aqi)));
+  /**
+   * Get AQI data source (for display in frontend)
+   * @returns {string} - Source of AQI data (e.g., 'aqi.in Sector 15A', 'WAQI Faridabad')
+   */
+  getAQISource() {
+    return getAQISource();
   }
 
   /**

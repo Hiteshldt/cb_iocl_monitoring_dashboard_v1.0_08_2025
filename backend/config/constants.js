@@ -29,6 +29,7 @@ module.exports = {
   // ============================================================================
   FEATURES: {
     ENABLE_DATA_DOWNLOAD: false,  // Set to true to enable CSV report download in frontend
+    SHOW_CO2_O2_CARDS: false,      // Set to true to show CO₂ Reduced / O₂ Released cards in dashboard
   },
 
   // ============================================================================

@@ -42,7 +42,7 @@ const DashboardPage = () => {
 
   // Backend config (features, relay labels, active relays)
   const [backendConfig, setBackendConfig] = useState({
-    features: { ENABLE_DATA_DOWNLOAD: false },
+    features: { ENABLE_DATA_DOWNLOAD: false, SHOW_CO2_O2_CARDS: false },
     relayLabels: {},
     activeRelays: []
   });
@@ -417,6 +417,7 @@ const DashboardPage = () => {
             data={deviceData}
             relayNames={relayNames}
             deviceStatus={deviceStatus}
+            showCO2O2Cards={backendConfig.features.SHOW_CO2_O2_CARDS}
           />
         )}
 

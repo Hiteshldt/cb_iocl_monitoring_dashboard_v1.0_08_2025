@@ -51,7 +51,7 @@ const RELAY_MAPPING = [
   { display: 'R8', internal: 'i7', name: null },                 // R8 last, no custom name
 ];
 
-const OverviewDashboard = ({ data, relayNames, deviceStatus = {} }) => {
+const OverviewDashboard = ({ data, relayNames, deviceStatus = {}, showCO2O2Cards = false }) => {
   const { isDark } = useTheme();
 
   // Check if device is offline
@@ -186,7 +186,7 @@ const OverviewDashboard = ({ data, relayNames, deviceStatus = {} }) => {
               <span className={`text-sm font-medium ${aqiInfo.text}`}>{aqiInfo.label}</span>
             </div>
             <div className={`mt-2 h-1.5 rounded-full ${isDark ? 'bg-slate-700' : 'bg-gray-200'}`}>
-              <div className={`h-full rounded-full ${aqiInfo.bg}`} style={{ width: `${Math.min(displayValues.aqi / 300 * 100, 100)}%` }} />
+              <div className={`h-full rounded-full ${aqiInfo.bg}`} style={{ width: `${Math.min(displayValues.aqi / 500 * 100, 100)}%` }} />
             </div>
           </div>
         </div>
@@ -255,64 +255,66 @@ const OverviewDashboard = ({ data, relayNames, deviceStatus = {} }) => {
         </div>
       </div>
 
-      {/* Accumulated Totals */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* CO2 Reduced */}
-        <div className={`rounded-lg border overflow-hidden ${isDark ? 'bg-slate-900 border-iocl-orange/30' : 'bg-white border-iocl-orange/30 shadow-sm'}`}>
-          <div className={`px-4 py-2 border-b ${isDark ? 'bg-iocl-orange/10 border-iocl-orange/20' : 'bg-iocl-orange/5 border-iocl-orange/20'}`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div className="w-1 h-4 rounded bg-iocl-orange"></div>
-                <span className={`text-sm font-semibold uppercase tracking-wide ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>
-                  CO₂ Reduced
-                </span>
-              </div>
-              <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>Total Accumulated</span>
-            </div>
-          </div>
-          <div className="px-4 py-4">
-            <div className="flex items-center justify-between mb-3">
-              <Wind className={`w-8 h-8 ${isDark ? 'text-iocl-orange' : 'text-iocl-orange'}`} />
-              <div className="text-right">
-                <span className={`text-2xl font-bold tabular-nums ${isDark ? 'text-iocl-orange' : 'text-iocl-orange-dark'}`}>
-                  {formatCO2(displayValues.co2AbsorbedGrams).value}
-                </span>
-                <span className={`text-sm ml-1 ${isDark ? 'text-iocl-orange/70' : 'text-iocl-orange'}`}>
-                  {formatCO2(displayValues.co2AbsorbedGrams).unit}
-                </span>
+      {/* Accumulated Totals - Only shown if SHOW_CO2_O2_CARDS is enabled */}
+      {showCO2O2Cards && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* CO2 Reduced */}
+          <div className={`rounded-lg border overflow-hidden ${isDark ? 'bg-slate-900 border-iocl-orange/30' : 'bg-white border-iocl-orange/30 shadow-sm'}`}>
+            <div className={`px-4 py-2 border-b ${isDark ? 'bg-iocl-orange/10 border-iocl-orange/20' : 'bg-iocl-orange/5 border-iocl-orange/20'}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-1 h-4 rounded bg-iocl-orange"></div>
+                  <span className={`text-sm font-semibold uppercase tracking-wide ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>
+                    CO₂ Reduced
+                  </span>
+                </div>
+                <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>Total Accumulated</span>
               </div>
             </div>
+            <div className="px-4 py-4">
+              <div className="flex items-center justify-between mb-3">
+                <Wind className={`w-8 h-8 ${isDark ? 'text-iocl-orange' : 'text-iocl-orange'}`} />
+                <div className="text-right">
+                  <span className={`text-2xl font-bold tabular-nums ${isDark ? 'text-iocl-orange' : 'text-iocl-orange-dark'}`}>
+                    {formatCO2(displayValues.co2AbsorbedGrams).value}
+                  </span>
+                  <span className={`text-sm ml-1 ${isDark ? 'text-iocl-orange/70' : 'text-iocl-orange'}`}>
+                    {formatCO2(displayValues.co2AbsorbedGrams).unit}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* O2 Released */}
-        <div className={`rounded-lg border overflow-hidden ${isDark ? 'bg-slate-900 border-iocl-blue/30' : 'bg-white border-iocl-blue/30 shadow-sm'}`}>
-          <div className={`px-4 py-2 border-b ${isDark ? 'bg-iocl-blue/10 border-iocl-blue/20' : 'bg-iocl-blue/5 border-iocl-blue/20'}`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div className="w-1 h-4 rounded bg-iocl-blue"></div>
-                <span className={`text-sm font-semibold uppercase tracking-wide ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>
-                  O₂ Released
-                </span>
+          {/* O2 Released */}
+          <div className={`rounded-lg border overflow-hidden ${isDark ? 'bg-slate-900 border-iocl-blue/30' : 'bg-white border-iocl-blue/30 shadow-sm'}`}>
+            <div className={`px-4 py-2 border-b ${isDark ? 'bg-iocl-blue/10 border-iocl-blue/20' : 'bg-iocl-blue/5 border-iocl-blue/20'}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-1 h-4 rounded bg-iocl-blue"></div>
+                  <span className={`text-sm font-semibold uppercase tracking-wide ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>
+                    O₂ Released
+                  </span>
+                </div>
+                <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>Photobioreactor</span>
               </div>
-              <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>Photobioreactor</span>
             </div>
-          </div>
-          <div className="px-4 py-4">
-            <div className="flex items-center justify-between mb-3">
-              <Leaf className={`w-8 h-8 ${isDark ? 'text-blue-400' : 'text-iocl-blue'}`} />
-              <div className="text-right">
-                <span className={`text-2xl font-bold tabular-nums ${isDark ? 'text-blue-400' : 'text-iocl-blue'}`}>
-                  {formatO2(displayValues.o2GeneratedLiters).value}
-                </span>
-                <span className={`text-sm ml-1 ${isDark ? 'text-blue-300' : 'text-iocl-blue-light'}`}>
-                  {formatO2(displayValues.o2GeneratedLiters).unit}
-                </span>
+            <div className="px-4 py-4">
+              <div className="flex items-center justify-between mb-3">
+                <Leaf className={`w-8 h-8 ${isDark ? 'text-blue-400' : 'text-iocl-blue'}`} />
+                <div className="text-right">
+                  <span className={`text-2xl font-bold tabular-nums ${isDark ? 'text-blue-400' : 'text-iocl-blue'}`}>
+                    {formatO2(displayValues.o2GeneratedLiters).value}
+                  </span>
+                  <span className={`text-sm ml-1 ${isDark ? 'text-blue-300' : 'text-iocl-blue-light'}`}>
+                    {formatO2(displayValues.o2GeneratedLiters).unit}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Relay Status Row */}
       <div className="grid grid-cols-1 gap-4">

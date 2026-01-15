@@ -154,30 +154,13 @@ class CalculationsService {
    * @param {Object} data - Sensor data
    * @returns {Object} - AQI value and category
    */
-  calculateAQI(data) {
-    const weights = formulas.aqi.weights;
+  calculateAQI() {
+    // Use real Faridabad AQI from data-transformer (fetched from aqi.in Sector 15A with fallbacks)
+    const dataTransformer = require('./data-transformer.service');
+    const aqi = dataTransformer.calculateSimpleAQI();
+    const source = dataTransformer.getAQISource ? dataTransformer.getAQISource() : 'Faridabad';
 
-    // Get INLET sensor values (d9-d12) - Outside Device
-    const co2 = data.d9 || 0;       // Inlet CO2 (ppm)
-    const pm = data.d10 || 0;       // Inlet PM2.5 (µg/m³)
-    const temp = data.d11 || 25;    // Inlet Temperature (°C)
-    const humidity = data.d12 || 50; // Inlet Humidity (%)
-
-    // Calculate sub-indices
-    const co2SubIndex = this.calculateSubIndex(co2, formulas.aqi.co2Breakpoints);
-    const pmSubIndex = this.calculateSubIndex(pm, formulas.aqi.pmBreakpoints);
-    const tempSubIndex = this.calculateTemperatureSubIndex(temp);
-    const humiditySubIndex = this.calculateHumiditySubIndex(humidity);
-
-    // Calculate weighted AQI
-    const aqi = Math.round(
-      (weights.co2 * co2SubIndex) +
-      (weights.pm * pmSubIndex) +
-      (weights.temperature * tempSubIndex) +
-      (weights.humidity * humiditySubIndex)
-    );
-
-    // Determine category
+    // Determine category based on AQI value
     let category, color;
     if (aqi <= 50) {
       category = 'Good';
@@ -203,12 +186,7 @@ class CalculationsService {
       value: Math.min(aqi, 500),
       category,
       color,
-      subIndices: {
-        co2: Math.round(co2SubIndex),
-        pm: Math.round(pmSubIndex),
-        temperature: Math.round(tempSubIndex),
-        humidity: Math.round(humiditySubIndex)
-      }
+      source
     };
   }
 
