@@ -140,9 +140,16 @@ class AWSWebSocketService {
         await relayService.verifyRelayStates(currentRelayStates);
       }
 
+      // Add server timestamp to processed data for accurate "last update" tracking
+      // This is the exact time the device data was received from AWS WebSocket
+      const dataWithTimestamp = {
+        ...processedData,
+        serverTimestamp: new Date().toISOString()
+      };
+
       // Emit data update to connected clients
       if (global.io) {
-        global.io.emit('deviceUpdate', processedData);
+        global.io.emit('deviceUpdate', dataWithTimestamp);
         global.io.emit('deviceStatus', cacheService.getDeviceStatus());
       }
 

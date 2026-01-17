@@ -29,6 +29,12 @@ let lastWeatherFetch = 0;
 let latestSensorData = {}; // Store latest sensor data for AQI calculation
 const WEATHER_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
+// ============================================================================
+// SENSOR VALUE CACHE (for invalid readings)
+// ============================================================================
+// Cache valid sensor values to use when invalid readings (0, >50, 4095, etc.) are received
+let cachedWaterTemp = null; // d7 - Water Temperature (valid: >0 and <50)
+
 // AQI calculation weights
 const EXTERNAL_AQI_WEIGHT = 0.30; // 30% from aqi.in
 const SENSOR_AQI_WEIGHT = 0.70;   // 70% from sensors (PM2.5 primary, CO2 secondary)
@@ -406,7 +412,27 @@ const SENSOR_TRANSFORMS = {
   },
 
   // d6: { type: 'none' },                     // Outlet Water Level - no transform needed
-  // d7: { type: 'none' },                     // Outlet Water Temp - no transform needed
+
+  // Outlet Water Temperature (°C) - Cache valid values (>0 and <50)
+  // Invalid readings (0, 4095, or >50) use cached value
+  d7: {
+    type: 'formula',
+    fn: (x) => {
+      // Check if value is valid (>0 and <50)
+      if (x > 0 && x < 50) {
+        // Valid reading - cache it and return
+        cachedWaterTemp = x;
+        return x;
+      }
+      // Invalid reading - use cached value if available
+      if (cachedWaterTemp !== null) {
+        logger.debug(`Water temp invalid (${x}), using cached: ${cachedWaterTemp}`);
+        return cachedWaterTemp;
+      }
+      // No cached value yet - return 0
+      return 0;
+    }
+  },
 
   // Outlet O₂ (%) - Show ~20.9% when device is ON, 0 when OFF
   d8: {

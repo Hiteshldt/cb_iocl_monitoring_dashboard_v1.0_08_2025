@@ -57,9 +57,10 @@ const DashboardPage = () => {
 
     socket.on('deviceUpdate', (data) => {
       setDeviceData(data);
-      // Use device timestamp if available, otherwise server timestamp, fallback to current time
-      const timestamp = data.deviceTimestamp || data.serverTimestamp || new Date().toISOString();
-      setLastUpdate(new Date(timestamp));
+      // Use serverTimestamp from backend - this is when device data was actually received
+      if (data.serverTimestamp) {
+        setLastUpdate(new Date(data.serverTimestamp));
+      }
       // When we receive data, the device is definitely online
       // Update online status but preserve other fields
       setDeviceStatus(prevStatus => ({
@@ -77,8 +78,8 @@ const DashboardPage = () => {
           ...prevStatus,
           ...status
         }));
-        // Update lastUpdate if status says online and has lastUpdate
-        if (status.online && status.lastUpdate) {
+        // Only set lastUpdate from status on initial load (when we don't have one yet)
+        if (!lastUpdate && status.lastUpdate) {
           setLastUpdate(new Date(status.lastUpdate));
         }
       }
@@ -556,6 +557,38 @@ const DashboardPage = () => {
                   <span className="font-semibold">Status:</span>{' '}
                   {displayStatus.enabled ? 'Enabled' : 'Disabled'} ·{' '}
                   {displayStatus.isRunning ? 'Service running' : 'Service stopped'}
+                </div>
+              )}
+
+              {/* Display Preview */}
+              {displayStatus?.enabled && deviceData && (
+                <div className={`mt-4 pt-3 border-t ${isDark ? 'border-slate-600' : 'border-gray-200'}`}>
+                  <p className={`text-xs font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                    LED Screen Preview:
+                  </p>
+                  <div className={`grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
+                    <div className={`px-2 py-1 rounded ${isDark ? 'bg-slate-700' : 'bg-gray-100'}`}>
+                      <span className="font-medium">AQI:</span> {Math.round(deviceData.calculated?.aqi?.value || 0)}
+                    </div>
+                    <div className={`px-2 py-1 rounded ${isDark ? 'bg-slate-700' : 'bg-gray-100'}`}>
+                      <span className="font-medium">Temp:</span> {Math.round(sensorData?.d11 || 0)}°C
+                    </div>
+                    <div className={`px-2 py-1 rounded ${isDark ? 'bg-slate-700' : 'bg-gray-100'}`}>
+                      <span className="font-medium">Hum:</span> {Math.round(sensorData?.d12 || 0)}%
+                    </div>
+                    <div className={`px-2 py-1 rounded ${isDark ? 'bg-slate-700' : 'bg-gray-100'}`}>
+                      <span className="font-medium">Time:</span> {new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' })}
+                    </div>
+                    <div className={`px-2 py-1 rounded ${isDark ? 'bg-slate-700' : 'bg-gray-100'}`}>
+                      <span className="font-medium">Date:</span> {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'numeric', year: '2-digit', timeZone: 'Asia/Kolkata' })}
+                    </div>
+                    <div className={`px-2 py-1 rounded ${isDark ? 'bg-slate-700' : 'bg-gray-100'}`}>
+                      <span className="font-medium">O₂:</span> {Math.round(sensorData?.d8 || 0)}%
+                    </div>
+                    <div className={`px-2 py-1 rounded ${isDark ? 'bg-slate-700' : 'bg-gray-100'}`}>
+                      <span className="font-medium">CO₂:</span> {Math.round(sensorData?.d1 || 0)} ppm
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
