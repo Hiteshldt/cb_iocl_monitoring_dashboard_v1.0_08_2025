@@ -6,12 +6,26 @@ const fileStorage = require('../utils/fileStorage');
 const logger = require('../utils/logger');
 const { DISPLAY_UPDATE_INTERVAL } = require('../config/constants');
 
+/**
+ * Display Service
+ *
+ * Sends display values (i11-i22) to the external LED screen via AWS API.
+ *
+ * FIXED ISSUES:
+ * 1. Uses setTimeout chain instead of setInterval to prevent drift
+ * 2. Prevents overlapping updates with isUpdating flag
+ * 3. Calculates time right before sending to minimize delay
+ * 4. Logs timing for verification
+ */
 class DisplayService {
   constructor() {
-    this.updateInterval = null;
+    this.updateTimeout = null;      // Changed from updateInterval
     this.isRunning = false;
     this.enabled = true;
     this.stateLoaded = false;
+    this.isUpdating = false;        // Prevents overlapping updates
+    this.updateCount = 0;           // Track number of updates for debugging
+    this.lastUpdateTime = null;     // Track when last update was sent
   }
 
   async loadState() {
@@ -37,7 +51,7 @@ class DisplayService {
     await this.loadState();
 
     if (!this.enabled) {
-      logger.info('Display service is disabled; not starting interval');
+      logger.info('Display service is disabled; not starting');
       return;
     }
 
@@ -46,40 +60,81 @@ class DisplayService {
       return;
     }
 
-    logger.info(`Starting display update service (interval: ${DISPLAY_UPDATE_INTERVAL}ms)`);
-
-    // Update immediately on start
-    this.updateDisplay();
-
-    // Then update at intervals
-    this.updateInterval = setInterval(() => {
-      this.updateDisplay();
-    }, DISPLAY_UPDATE_INTERVAL);
+    logger.info(`Starting display update service (interval: ${DISPLAY_UPDATE_INTERVAL}ms = ${DISPLAY_UPDATE_INTERVAL / 1000}s)`);
 
     this.isRunning = true;
+    this.updateCount = 0;
+
+    // Update immediately on start, then schedule next
+    this.updateDisplay();
+  }
+
+  /**
+   * Schedule the next update using setTimeout (prevents drift)
+   * Only schedules if service is still running and enabled
+   */
+  scheduleNextUpdate() {
+    if (!this.isRunning || !this.enabled) {
+      return;
+    }
+
+    // Clear any existing timeout
+    if (this.updateTimeout) {
+      clearTimeout(this.updateTimeout);
+    }
+
+    // Schedule next update
+    this.updateTimeout = setTimeout(() => {
+      this.updateDisplay();
+    }, DISPLAY_UPDATE_INTERVAL);
   }
 
   /**
    * Stop display update service
    */
   stop() {
-    if (this.updateInterval) {
-      clearInterval(this.updateInterval);
-      this.updateInterval = null;
-      this.isRunning = false;
-      logger.info('Display service stopped');
+    if (this.updateTimeout) {
+      clearTimeout(this.updateTimeout);
+      this.updateTimeout = null;
     }
+    this.isRunning = false;
+    this.isUpdating = false;
+    logger.info('Display service stopped');
+  }
+
+  /**
+   * Get current IST time (Indian Standard Time = UTC+5:30)
+   * Called right before sending to minimize delay
+   */
+  getISTTime() {
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+    const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
+    return new Date(utcTime + istOffset);
   }
 
   /**
    * Update display with current data
+   * Uses overlap prevention and timing verification
    */
   async updateDisplay() {
-    try {
-      if (!this.enabled) {
-        return;
-      }
+    // Prevent overlapping updates
+    if (this.isUpdating) {
+      logger.warn('Display update skipped - previous update still in progress');
+      this.scheduleNextUpdate();
+      return;
+    }
 
+    if (!this.enabled) {
+      this.scheduleNextUpdate();
+      return;
+    }
+
+    this.isUpdating = true;
+    const startTime = Date.now();
+    this.updateCount++;
+
+    try {
       // Get processed data from cache (already transformed)
       const processedData = cacheService.getProcessedData();
       const currentData = cacheService.getLatestData();
@@ -92,12 +147,7 @@ class DisplayService {
       // Get automation rules to determine relay modes (manual vs auto)
       const automationRules = await automationService.getRules();
 
-      // =====================================================================
-      // Use dataTransformer to get display values
-      // This allows custom configuration of what values go to the LED screen
-      // Edit DISPLAY_TRANSFORMS in data-transformer.service.js to customize
-      // i21 = relay modes (1=Manual, 2=Auto), i22 = relay states (1=ON, 2=OFF)
-      // =====================================================================
+      // Get display values (sensor data, relay states)
       const displayData = dataTransformer.getDisplayValues(processedData || { sensors: currentData }, automationRules);
 
       if (!displayData) {
@@ -105,12 +155,37 @@ class DisplayService {
         return;
       }
 
+      // =====================================================================
+      // CRITICAL: Calculate time RIGHT BEFORE sending to minimize delay
+      // This ensures the time shown on LED is as accurate as possible
+      // =====================================================================
+      const istTime = this.getISTTime();
+      displayData.i14 = istTime.getHours();       // Hour (24h, no leading zero)
+      displayData.i15 = istTime.getMinutes();     // Minute (no leading zero)
+      displayData.i16 = istTime.getDate();        // Day
+      displayData.i17 = istTime.getMonth() + 1;   // Month
+      displayData.i18 = istTime.getFullYear() % 100; // Year (last 2 digits)
+
       // Send command to device
       await awsService.sendCommand(displayData);
 
-      logger.debug(`Display updated: AQI=${displayData.i11}, TEMP=${displayData.i12}°C, HUM=${displayData.i13}%, Time=${displayData.i14}:${displayData.i15} IST, Date=${displayData.i16}/${displayData.i17}/${displayData.i18}, O2=${displayData.i19}%, CO2=${displayData.i20}ppm, Modes=${displayData.i21}, States=${displayData.i22}`);
+      const duration = Date.now() - startTime;
+      this.lastUpdateTime = new Date();
+
+      // Log with timing info for verification
+      logger.info(`[Display #${this.updateCount}] Sent in ${duration}ms | Time: ${displayData.i14}:${displayData.i15} | Date: ${displayData.i16}/${displayData.i17}/${displayData.i18} | AQI: ${displayData.i11} | Temp: ${displayData.i12}°C | Hum: ${displayData.i13}%`);
+
+      // Warn if update took too long
+      if (duration > 5000) {
+        logger.warn(`Display update took ${duration}ms - may cause perceived delay`);
+      }
+
     } catch (error) {
       logger.error('Error updating display:', error.message);
+    } finally {
+      this.isUpdating = false;
+      // Schedule next update AFTER this one completes (prevents overlap and drift)
+      this.scheduleNextUpdate();
     }
   }
 
@@ -174,7 +249,10 @@ class DisplayService {
     return {
       isRunning: this.isRunning,
       enabled: this.enabled,
-      updateInterval: DISPLAY_UPDATE_INTERVAL
+      updateInterval: DISPLAY_UPDATE_INTERVAL,
+      updateCount: this.updateCount,
+      lastUpdateTime: this.lastUpdateTime,
+      isUpdating: this.isUpdating
     };
   }
 

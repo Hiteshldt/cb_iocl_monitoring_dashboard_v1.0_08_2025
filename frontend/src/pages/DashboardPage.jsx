@@ -102,6 +102,17 @@ const DashboardPage = () => {
     };
   }, []);
 
+  // Auto-refresh display status when on settings tab (every 10 seconds)
+  useEffect(() => {
+    if (activeTab !== 'settings') return;
+
+    const interval = setInterval(() => {
+      fetchDisplayStatus();
+    }, 10000); // Refresh every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [activeTab]);
+
   const fetchDeviceData = async () => {
     try {
       const [dataRes, statusRes] = await Promise.all([
@@ -156,7 +167,10 @@ const DashboardPage = () => {
         setDisplayStatus({
           enabled: res.data.enabled,
           isRunning: res.data.isRunning,
-          updateInterval: res.data.updateInterval
+          updateInterval: res.data.updateInterval,
+          updateCount: res.data.updateCount,
+          lastUpdateTime: res.data.lastUpdateTime,
+          isUpdating: res.data.isUpdating
         });
       }
       setDisplayError('');
@@ -174,7 +188,10 @@ const DashboardPage = () => {
         setDisplayStatus({
           enabled: res.data.enabled,
           isRunning: res.data.isRunning,
-          updateInterval: res.data.updateInterval
+          updateInterval: res.data.updateInterval,
+          updateCount: res.data.updateCount,
+          lastUpdateTime: res.data.lastUpdateTime,
+          isUpdating: res.data.isUpdating
         });
         setDisplayError('');
       }
@@ -554,9 +571,30 @@ const DashboardPage = () => {
               </div>
               {displayStatus && (
                 <div className={`mt-3 text-xs ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
-                  <span className="font-semibold">Status:</span>{' '}
-                  {displayStatus.enabled ? 'Enabled' : 'Disabled'} ·{' '}
-                  {displayStatus.isRunning ? 'Service running' : 'Service stopped'}
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    <span>
+                      <span className="font-semibold">Status:</span>{' '}
+                      <span className={displayStatus.enabled ? 'text-green-500' : 'text-red-500'}>
+                        {displayStatus.enabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </span>
+                    <span>
+                      <span className="font-semibold">Service:</span>{' '}
+                      {displayStatus.isRunning ? 'Running' : 'Stopped'}
+                    </span>
+                    {displayStatus.updateCount > 0 && (
+                      <span>
+                        <span className="font-semibold">Updates Sent:</span>{' '}
+                        {displayStatus.updateCount}
+                      </span>
+                    )}
+                    {displayStatus.lastUpdateTime && (
+                      <span>
+                        <span className="font-semibold">Last Update:</span>{' '}
+                        {new Date(displayStatus.lastUpdateTime).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
 
