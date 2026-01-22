@@ -41,13 +41,13 @@ const saveCachedValues = (values) => {
 // Relay mapping: Display name (R1-R8) to internal ID (i1-i8)
 // Order: R1, R2, R3, R4, R5, R7, R6, R8 (R7 before R6 as requested)
 const RELAY_MAPPING = [
-  { display: 'R1', internal: 'i4', name: 'Circulator Actuator' },
-  { display: 'R2', internal: 'i1', name: 'Aeration Blower Assembly' },
-  { display: 'R3', internal: 'i2', name: 'Luminaire + Dehumidifier' },
-  { display: 'R4', internal: 'i3', name: 'Photosynthetic Irrad.' },
-  { display: 'R5', internal: 'i8', name: 'Thermal System' },
-  { display: 'R7', internal: 'i6', name: 'Exhaust Impeller' },  // R7 before R6
-  { display: 'R6', internal: 'i5', name: 'Relay-6' },            // R6 after R7
+  { display: 'R1', internal: 'i4', name: 'Culture Thermal System' },
+  { display: 'R2', internal: 'i1', name: 'Aeration & Pneumatic Assembly' },
+  { display: 'R3', internal: 'i2', name: 'Dehumidity + Fall Lights' },
+  { display: 'R4', internal: 'i3', name: 'Photosynthetic Irradiance Module' },
+  { display: 'R5', internal: 'i8', name: 'Branding Lights' },
+  { display: 'R7', internal: 'i6', name: 'Media Circulation Actuator' },  // R7 before R6
+  { display: 'R6', internal: 'i5', name: 'System Chassis Exhaust Impeller' },  // R6 after R7
   { display: 'R8', internal: 'i7', name: 'Relay-8' },            // R8 last
 ];
 

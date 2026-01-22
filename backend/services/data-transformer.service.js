@@ -406,12 +406,7 @@ const SENSOR_TRANSFORMS = {
   },
 
   // d6: { type: 'none' },                     // Outlet Water Level - no transform needed
-
-  // Outlet Water Temperature (°C) - Fixed at 30°C
-  d7: {
-    type: 'formula',
-    fn: () => 30
-  },
+  // d7: { type: 'none' },                     // Outlet Water Temp - show actual value from sensor
 
   // Outlet O₂ (%) - Show ~20.9% when device is ON, 0 when OFF
   d8: {
@@ -500,13 +495,13 @@ const DISPLAY_TRANSFORMS = {
 // Order: R1, R2, R3, R4, R5, R7, R6, R8 (R7 before R6 as requested)
 // This matches the frontend mapping
 const RELAY_MAPPING = [
-  { display: 'R1', internal: 'i4', name: 'Circulator Actuator' },
-  { display: 'R2', internal: 'i1', name: 'Aeration Blower Assembly' },
-  { display: 'R3', internal: 'i2', name: 'Luminaire + Dehumidifier' },
-  { display: 'R4', internal: 'i3', name: 'Photosynthetic Irrad.' },
-  { display: 'R5', internal: 'i8', name: 'Thermal System' },
-  { display: 'R7', internal: 'i6', name: 'Exhaust Impeller' },  // R7 before R6
-  { display: 'R6', internal: 'i5', name: 'Relay-6' },            // R6 after R7
+  { display: 'R1', internal: 'i4', name: 'Culture Thermal System' },
+  { display: 'R2', internal: 'i1', name: 'Aeration & Pneumatic Assembly' },
+  { display: 'R3', internal: 'i2', name: 'Dehumidity + Fall Lights' },
+  { display: 'R4', internal: 'i3', name: 'Photosynthetic Irradiance Module' },
+  { display: 'R5', internal: 'i8', name: 'Branding Lights' },
+  { display: 'R7', internal: 'i6', name: 'Media Circulation Actuator' },  // R7 before R6
+  { display: 'R6', internal: 'i5', name: 'System Chassis Exhaust Impeller' },  // R6 after R7
   { display: 'R8', internal: 'i7', name: 'Relay-8' },            // R8 last
 ];
 
