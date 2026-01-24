@@ -411,7 +411,12 @@ const SENSOR_TRANSFORMS = {
   },
 
   // d6: { type: 'none' },                     // Outlet Water Level - no transform needed
-  // d7: { type: 'none' },                     // Outlet Water Temp - no transform, use raw value
+
+  // Outlet Water Temperature (°C) - Fixed at ~24°C
+  d7: {
+    type: 'formula',
+    fn: () => 24
+  },
 
   // Outlet pH - Keep around 6.9 to 7.1 (neutral range)
   d5: {
