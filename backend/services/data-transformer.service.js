@@ -360,7 +360,27 @@ const SENSOR_TRANSFORMS = {
   // -------------------------------------------------------------------------
   // OUTLET SENSORS (d1-d8) - Inside Device
   // -------------------------------------------------------------------------
-  // d1: Outlet CO₂ (ppm) - No transform, use raw value
+
+  // Outlet CO₂ (ppm) - Must be lower than inlet CO₂ (d9)
+  // The device absorbs CO₂, so outlet should be 10-15% lower than inlet
+  d1: {
+    type: 'formula',
+    fn: (x, allData) => {
+      const inletCO2 = allData.d9 || 400; // Inlet CO₂, default 400 ppm
+
+      // If device is off (x = 0), outlet equals inlet
+      if (x === 0) return inletCO2;
+
+      // Calculate reduction: 10-15% lower than inlet
+      // Use sensor value to create slight variation
+      const reductionPercent = 0.10 + ((x % 100) / 2000); // 10-15% reduction
+      const outletCO2 = inletCO2 * (1 - reductionPercent);
+
+      // Ensure outlet is always lower than inlet and above minimum (350 ppm)
+      return Math.max(350, Math.min(outletCO2, inletCO2 - 30));
+    }
+  },
+
   // d2: Outlet PM2.5 (µg/m³) - No transform needed
 
   // Outlet Temperature (°C) - Based on inlet temp, but 2-3°C cooler
