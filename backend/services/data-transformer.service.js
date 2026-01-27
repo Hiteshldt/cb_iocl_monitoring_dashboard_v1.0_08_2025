@@ -264,20 +264,18 @@ const SENSOR_TRANSFORMS = {
 
   // d2: Outlet PM2.5 (µg/m³) - No transform needed
 
-  // Outlet Temperature (°C) - Based on inlet temp, but 2-3°C cooler
+  // Outlet Temperature (°C) - Steinhart-Hart thermistor equation (same as inlet)
+  // Shows actual outlet temperature from sensor
   d3: {
     type: 'formula',
-    fn: (x, allData) => {
-      // Calculate inlet temperature first using same formula
-      const inletRaw = allData.d11 || x;
-      if (inletRaw <= 0) return 0;
-      const voltage = inletRaw * 3.3 / 4096.0;
+    fn: (x) => {
+      if (x <= 0) return 0;
+      // Steinhart-Hart thermistor calculation
+      const voltage = x * 3.3 / 4096.0;
       const resistance = 10000.0 * (3.3 - voltage) / voltage;
       const logR = Math.log(resistance / 46500.0);
       const tempKelvin = 1.0 / ((logR / 3435.0) + (1.0 / 298.15));
-      const inletTemp = 1.71 * (tempKelvin - 273.15) - 17.7;
-      // Outlet is 2-3°C cooler than inlet
-      return inletTemp - 2.5;
+      return 1.71 * (tempKelvin - 273.15) - 17.7;
     }
   },
 
@@ -411,8 +409,9 @@ const SENSOR_TRANSFORMS = {
 
   // d7: { type: 'none' },                     // Outlet Water Temp - show actual value from sensor
 
-  // Outlet O₂ (%) - raw_value / 10, with fluctuation protection
+  // Outlet O₂ (%) - raw_value / 10, with fluctuation protection and clamping
   // Must be higher than inlet O₂ (device produces O₂)
+  // Clamped to 18-26% range (safe operating range)
   d8: {
     type: 'formula',
     fn: (x, allData) => {
@@ -422,8 +421,8 @@ const SENSOR_TRANSFORMS = {
       // Calculate O2 as raw_value / 10
       const rawO2 = x / 10;
 
-      // Fluctuation protection: reject values outside reasonable range (15-25%)
-      if (rawO2 < 15 || rawO2 > 25) {
+      // Fluctuation protection: reject values outside reasonable range (15-27%)
+      if (rawO2 < 15 || rawO2 > 27) {
         return cachedOutletO2; // Use cached value
       }
 
@@ -434,7 +433,10 @@ const SENSOR_TRANSFORMS = {
 
       // Outlet should be 0.2-0.5% higher than inlet
       const minOutletO2 = Math.min(inletO2 + 0.2, 21.5);
-      const finalO2 = Math.max(rawO2, minOutletO2);
+      let finalO2 = Math.max(rawO2, minOutletO2);
+
+      // Clamp to safe range: 18% min, 26% max
+      finalO2 = Math.max(18, Math.min(26, finalO2));
 
       // Update cache with valid value
       cachedOutletO2 = finalO2;
@@ -471,8 +473,9 @@ const SENSOR_TRANSFORMS = {
   // d14: Hidden - Inlet Water Level not displayed
   // d15: Hidden - Inlet Water Temp not displayed
 
-  // Inlet O₂ (%) - raw_value / 10, with fluctuation protection
+  // Inlet O₂ (%) - raw_value / 10, with fluctuation protection and clamping
   // Must be lower than outlet O₂ (ambient air ~20.9%)
+  // Clamped to 18-26% range (safe operating range)
   d16: {
     type: 'formula',
     fn: (x) => {
@@ -482,14 +485,17 @@ const SENSOR_TRANSFORMS = {
       // Calculate O2 as raw_value / 10
       const rawO2 = x / 10;
 
-      // Fluctuation protection: reject values outside reasonable range (15-25%)
-      if (rawO2 < 15 || rawO2 > 25) {
+      // Fluctuation protection: reject values outside reasonable range (15-27%)
+      if (rawO2 < 15 || rawO2 > 27) {
         return cachedInletO2; // Use cached value
       }
 
       // Inlet O2 should be around ambient (~20.9%) or slightly lower
       // Cap at 21% to ensure it's always lower than outlet
-      const finalO2 = Math.min(rawO2, 21.0);
+      let finalO2 = Math.min(rawO2, 21.0);
+
+      // Clamp to safe range: 18% min, 26% max
+      finalO2 = Math.max(18, Math.min(26, finalO2));
 
       // Update cache with valid value
       cachedInletO2 = finalO2;
