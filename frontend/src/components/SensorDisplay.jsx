@@ -11,7 +11,7 @@ const SENSOR_LABELS = {
   d3: { label: 'Outlet Temperature', unit: '°C', icon: Thermometer },
   d4: { label: 'Outlet Humidity', unit: '%', icon: Droplets },
   d5: { label: 'pH', unit: 'pH', icon: Droplets },
-  d6: { label: 'Water Level', unit: '', icon: Droplets },
+  d6: { label: 'Water Level', unit: 'cm', icon: Droplets },
   d7: { label: 'Water Temp', unit: '°C', icon: Thermometer },
   d8: { label: 'Outlet O₂', unit: '%', icon: Wind },
   // Inlet sensors (d9-d16) - Outside Device
