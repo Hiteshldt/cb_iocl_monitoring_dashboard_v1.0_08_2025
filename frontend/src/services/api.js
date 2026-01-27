@@ -52,6 +52,7 @@ export const deviceAPI = {
   getDisplayStatus: () => api.get('/device/display'),
   setDisplayEnabled: (enabled) => api.put('/device/display', { enabled }),
   getReport: (startDate, endDate) => api.get(`/device/report?startDate=${startDate}&endDate=${endDate}`),
+  downloadReport: (startDate, endDate) => api.get(`/device/report/download?startDate=${startDate}&endDate=${endDate}`, { responseType: 'blob' }),
 };
 
 // Relay API

@@ -17,7 +17,11 @@
       "Bash(timeout 15 node:*)",
       "Bash(kill:*)",
       "Bash(/c/Windows/System32/taskkill.exe //F //PID 49580)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(timeout 120 node:*)",
+      "Bash(timeout 180 node -e:*)",
+      "Bash(timeout 60 node -e:*)",
+      "Bash(timeout 30 node:*)"
     ],
     "deny": [],
     "ask": []

@@ -3,6 +3,7 @@ const awsService = require('../services/aws.service');
 const cacheService = require('../services/cache.service');
 const calculationsService = require('../services/calculations.service');
 const displayService = require('../services/display.service');
+const reportService = require('../services/report.service');
 const { transformDeviceData } = require('../utils/deviceMapper');
 const { verifyToken } = require('../middleware/auth.middleware');
 const logger = require('../utils/logger');
@@ -400,6 +401,83 @@ router.get('/report', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error generating report. Please try again.'
+    });
+  }
+});
+
+/**
+ * GET /api/device/report/download
+ * Download processed report as CSV
+ * - Applies all sensor transformations
+ * - Uses clean column names
+ * - Removes IMEI, device ID, unnecessary fields
+ * - Relay states shown as ON/OFF
+ */
+router.get('/report/download', async (req, res) => {
+  try {
+    // Check if data download feature is enabled
+    if (!FEATURES.ENABLE_DATA_DOWNLOAD) {
+      return res.status(403).json({
+        success: false,
+        message: 'Data download feature is disabled'
+      });
+    }
+
+    const { startDate, endDate } = req.query;
+
+    // Validate date parameters
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'startDate and endDate are required (format: YYYY-MM-DD)'
+      });
+    }
+
+    // Validate date format
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid date format. Use YYYY-MM-DD'
+      });
+    }
+
+    // Validate date range
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (start > end) {
+      return res.status(400).json({
+        success: false,
+        message: 'startDate must be before or equal to endDate'
+      });
+    }
+
+    // Limit date range to 31 days
+    const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    if (daysDiff > 31) {
+      return res.status(400).json({
+        success: false,
+        message: 'Date range cannot exceed 31 days'
+      });
+    }
+
+    logger.info(`Processed report download requested for ${startDate} to ${endDate}`);
+
+    // Generate processed report
+    const report = await reportService.getProcessedReport(startDate, endDate);
+
+    // Set headers for CSV download
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${report.filename}"`);
+
+    // Send CSV
+    res.send(report.csv);
+
+  } catch (error) {
+    logger.error('Error downloading processed report:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error generating report. Please try again.'
     });
   }
 });

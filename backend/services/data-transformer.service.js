@@ -29,97 +29,42 @@ let lastWeatherFetch = 0;
 let latestSensorData = {}; // Store latest sensor data for AQI calculation
 const WEATHER_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
+// O2 value caching for fluctuation protection
+let cachedInletO2 = 20.9;   // Default ambient O2
+let cachedOutletO2 = 21.2;  // Slightly higher than inlet (device produces O2)
+
+// Water level caching and smoothing
+// Only update display every 2 minutes and filter out sudden spikes
+let cachedWaterLevel = 50;           // Default water level in cm
+let waterLevelHistory = [];          // Store last N readings for smoothing
+let lastWaterLevelUpdate = 0;        // Last time the displayed value was updated
+const WATER_LEVEL_UPDATE_INTERVAL = 2 * 60 * 1000;  // 2 minutes in ms
+const WATER_LEVEL_HISTORY_SIZE = 12; // Store 12 readings (~2 min at 10s intervals)
+const WATER_LEVEL_SPIKE_THRESHOLD = 5; // Ignore changes > 5cm from median
+
 // AQI calculation weights
-const EXTERNAL_AQI_WEIGHT = 0.30; // 30% from aqi.in
-const SENSOR_AQI_WEIGHT = 0.70;   // 70% from sensors (PM2.5 primary, CO2 secondary)
+// Using 100% sensor data since external APIs (WAQI, aqi.in) are unreliable
+const EXTERNAL_AQI_WEIGHT = 0.00; // 0% from external (APIs not working for India)
+const SENSOR_AQI_WEIGHT = 1.00;   // 100% from sensors (PM2.5 primary)
+
 
 /**
- * Fetch AQI from aqi.in for Faridabad Sector 15A
- * Scrapes the dashboard page to extract current AQI value
- */
-async function fetchAQIFromAqiIn() {
-  try {
-    // Fetch the Sector 15A dashboard page
-    const response = await fetch('https://www.aqi.in/dashboard/india/haryana/faridabad/sector-15a', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const html = await response.text();
-
-    // Look for AQI value in the page - multiple patterns to try
-    // Pattern 1: Look for "aqi" in JSON-LD structured data
-    const jsonLdMatch = html.match(/"aqi"\s*:\s*(\d+)/i);
-    if (jsonLdMatch && jsonLdMatch[1]) {
-      const aqi = parseInt(jsonLdMatch[1], 10);
-      if (!isNaN(aqi) && aqi >= 0 && aqi <= 999) {
-        logger.info(`Fetched AQI from aqi.in Sector 15A (JSON-LD): ${aqi}`);
-        return aqi;
-      }
-    }
-
-    // Pattern 2: Look for AQI in title/meta or display elements
-    // Common patterns: "AQI: 585", "AQI 585", "aqi-value">585<"
-    // Updated to support up to 4 digits (max AQI ~500-999)
-    const aqiPatterns = [
-      /AQI[:\s]+(\d{1,4})/i,
-      /aqi-value[^>]*>(\d{1,4})</i,
-      /"aqiValue"\s*:\s*(\d+)/i,
-      /class="[^"]*aqi[^"]*"[^>]*>(\d{1,4})</i,
-      />\s*(\d{3,4})\s*<[^>]*(?:aqi|hazardous|very\s*unhealthy)/i
-    ];
-
-    for (const pattern of aqiPatterns) {
-      const match = html.match(pattern);
-      if (match && match[1]) {
-        const aqi = parseInt(match[1], 10);
-        if (!isNaN(aqi) && aqi >= 0 && aqi <= 999) {
-          logger.info(`Fetched AQI from aqi.in Sector 15A: ${aqi}`);
-          return aqi;
-        }
-      }
-    }
-
-    // Pattern 3: Look for PM2.5 and calculate AQI
-    const pm25Match = html.match(/PM2\.?5[:\s]*(\d+)/i);
-    if (pm25Match && pm25Match[1]) {
-      const pm25 = parseFloat(pm25Match[1]);
-      // Convert PM2.5 to AQI using US EPA breakpoints
-      const aqi = calculateAQIFromPM25(pm25);
-      if (aqi !== null) {
-        logger.info(`Calculated AQI from aqi.in PM2.5 (${pm25}): ${aqi}`);
-        return aqi;
-      }
-    }
-
-    throw new Error('Could not parse AQI from page');
-  } catch (error) {
-    logger.debug(`Failed to fetch from aqi.in: ${error.message}`);
-    return null;
-  }
-}
-
-/**
- * Convert PM2.5 concentration to AQI using US EPA breakpoints
+ * Convert PM2.5 concentration to AQI using India National AQI (NAQI) breakpoints
+ * These breakpoints match what aqi.in and other India AQI sources use
+ * Reference: Central Pollution Control Board (CPCB) India
  */
 function calculateAQIFromPM25(pm25) {
   if (pm25 < 0) return null;
 
-  // US EPA AQI breakpoints for PM2.5 (24-hour)
+  // India National AQI (NAQI) breakpoints for PM2.5 (24-hour average)
+  // Source: CPCB India - matches aqi.in calculations
   const breakpoints = [
-    { cLow: 0, cHigh: 12.0, iLow: 0, iHigh: 50 },
-    { cLow: 12.1, cHigh: 35.4, iLow: 51, iHigh: 100 },
-    { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 },
-    { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200 },
-    { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300 },
-    { cLow: 250.5, cHigh: 350.4, iLow: 301, iHigh: 400 },
-    { cLow: 350.5, cHigh: 500.4, iLow: 401, iHigh: 500 }
+    { cLow: 0, cHigh: 30, iLow: 0, iHigh: 50 },       // Good
+    { cLow: 31, cHigh: 60, iLow: 51, iHigh: 100 },    // Satisfactory
+    { cLow: 61, cHigh: 90, iLow: 101, iHigh: 200 },   // Moderate
+    { cLow: 91, cHigh: 120, iLow: 201, iHigh: 300 },  // Poor
+    { cLow: 121, cHigh: 250, iLow: 301, iHigh: 400 }, // Very Poor
+    { cLow: 251, cHigh: 500, iLow: 401, iHigh: 500 }  // Severe
   ];
 
   for (const bp of breakpoints) {
@@ -129,58 +74,14 @@ function calculateAQIFromPM25(pm25) {
     }
   }
 
-  // Beyond 500 AQI
-  if (pm25 > 500.4) {
+  // Beyond 500 AQI (Severe+)
+  if (pm25 > 500) {
     return 500;
   }
 
   return null;
 }
 
-/**
- * Fetch AQI from WAQI as fallback
- */
-async function fetchAQIFromWAQI() {
-  try {
-    const response = await fetch('https://api.waqi.info/feed/faridabad/?token=demo');
-    const data = await response.json();
-    if (data.status === 'ok' && data.data && typeof data.data.aqi === 'number') {
-      logger.info(`Fetched AQI from WAQI Faridabad: ${data.data.aqi}`);
-      return data.data.aqi;
-    }
-  } catch (error) {
-    logger.debug(`Failed to fetch from WAQI: ${error.message}`);
-  }
-  return null;
-}
-
-/**
- * Estimate AQI from visibility as last fallback
- */
-async function estimateAQIFromVisibility() {
-  try {
-    const response = await fetch('https://wttr.in/Faridabad?format=j1');
-    const data = await response.json();
-    if (data.current_condition && data.current_condition[0]) {
-      const visibility = parseInt(data.current_condition[0].visibility, 10);
-      let aqi;
-      if (visibility >= 10) {
-        aqi = 50 + Math.floor(Math.random() * 30); // Good: 50-80
-      } else if (visibility >= 5) {
-        aqi = 100 + Math.floor(Math.random() * 50); // Moderate: 100-150
-      } else if (visibility >= 2) {
-        aqi = 150 + Math.floor(Math.random() * 50); // Unhealthy: 150-200
-      } else {
-        aqi = 200 + Math.floor(Math.random() * 100); // Very Unhealthy: 200-300
-      }
-      logger.info(`Estimated AQI from visibility (${visibility}km): ${aqi}`);
-      return aqi;
-    }
-  } catch (error) {
-    logger.debug(`Failed to estimate AQI from visibility: ${error.message}`);
-  }
-  return null;
-}
 
 /**
  * Calculate AQI from CO2 concentration
@@ -273,36 +174,16 @@ async function fetchFaridabadWeather() {
     logger.debug('Failed to fetch humidity, using cached:', cachedHumidity);
   }
 
-  // Fetch external AQI with priority: aqi.in Sector 15A > WAQI > visibility estimate
-  let externalAQI = null;
+  // Since we're using 100% sensor data (external APIs unreliable for India),
+  // set the source accordingly
+  aqiSource = 'Sensor (India NAQI from PM2.5)';
 
-  // Try aqi.in first (Sector 15A specific)
-  externalAQI = await fetchAQIFromAqiIn();
-  if (externalAQI !== null) {
-    cachedExternalAQI = externalAQI;
-    aqiSource = 'Hybrid (30% aqi.in + 70% sensors)';
-  } else {
-    // Fallback to WAQI
-    externalAQI = await fetchAQIFromWAQI();
-    if (externalAQI !== null) {
-      cachedExternalAQI = externalAQI;
-      aqiSource = 'Hybrid (30% WAQI + 70% sensors)';
-    } else {
-      // Last resort: estimate from visibility
-      externalAQI = await estimateAQIFromVisibility();
-      if (externalAQI !== null) {
-        cachedExternalAQI = externalAQI;
-        aqiSource = 'Hybrid (30% visibility + 70% sensors)';
-      }
-    }
-  }
+  // Recalculate sensor-based AQI
+  const sensorAQI = calculateHybridAQI();
 
-  // Recalculate hybrid AQI with new external data
-  const hybridAQI = calculateHybridAQI();
-
-  logger.info(`AQI - External: ${cachedExternalAQI}, Hybrid: ${hybridAQI}, Source: ${aqiSource}`);
+  logger.info(`AQI - Sensor-based: ${sensorAQI}, Source: ${aqiSource}`);
   lastWeatherFetch = now;
-  return { humidity: cachedHumidity, aqi: hybridAQI };
+  return { humidity: cachedHumidity, aqi: sensorAQI };
 }
 
 // Update sensor data for AQI calculation (called from transformSensorData)
@@ -412,11 +293,8 @@ const SENSOR_TRANSFORMS = {
 
   // d6: { type: 'none' },                     // Outlet Water Level - no transform needed
 
-  // Outlet Water Temperature (°C) - Fixed at ~24°C
-  d7: {
-    type: 'formula',
-    fn: () => 24
-  },
+  // Outlet Water Temperature (°C) - Show actual sensor value
+  // d7: { type: 'none' },  // Use raw sensor value directly
 
   // Outlet pH - Keep around 6.9 to 7.1 (neutral range)
   d5: {
@@ -430,18 +308,137 @@ const SENSOR_TRANSFORMS = {
     }
   },
 
-  // d6: { type: 'none' },                     // Outlet Water Level - no transform needed
-  // d7: { type: 'none' },                     // Outlet Water Temp - show actual value from sensor
-
-  // Outlet O₂ (%) - Show ~20.9% when device is ON, 0 when OFF
-  d8: {
+  // Outlet Water Level (cm) - Calibrated from raw sensor values
+  // Features:
+  // 1. Calibration curve (raw → cm)
+  // 2. Smoothing: Only update every 2 minutes
+  // 3. Spike filtering: Ignore sudden changes, only show consistent trends
+  d6: {
     type: 'formula',
     fn: (x) => {
+      if (x === 0) return 0;
+
+      // Calibration points: [raw_value, cm]
+      const calibration = [
+        [648, 30],
+        [667, 33],
+        [676, 34],
+        [689, 36],
+        [700, 41],
+        [726, 45],
+        [756, 50],
+        [782, 55],
+        [796, 61],
+        [828, 63]
+      ];
+
+      // Step 1: Convert raw value to cm using calibration curve
+      let calibratedCm;
+
+      if (x <= calibration[0][0]) {
+        calibratedCm = calibration[0][1];
+      } else if (x >= calibration[calibration.length - 1][0]) {
+        // Extrapolate above max
+        const [rawLow, cmLow] = calibration[calibration.length - 2];
+        const [rawHigh, cmHigh] = calibration[calibration.length - 1];
+        const slope = (cmHigh - cmLow) / (rawHigh - rawLow);
+        calibratedCm = cmHigh + slope * (x - rawHigh);
+      } else {
+        // Interpolate
+        for (let i = 0; i < calibration.length - 1; i++) {
+          const [rawLow, cmLow] = calibration[i];
+          const [rawHigh, cmHigh] = calibration[i + 1];
+          if (x >= rawLow && x <= rawHigh) {
+            const ratio = (x - rawLow) / (rawHigh - rawLow);
+            calibratedCm = cmLow + ratio * (cmHigh - cmLow);
+            break;
+          }
+        }
+      }
+
+      if (calibratedCm === undefined) {
+        calibratedCm = x; // Fallback
+      }
+
+      calibratedCm = Math.round(calibratedCm * 10) / 10;
+
+      // Step 2: Add to history for smoothing
+      waterLevelHistory.push({
+        value: calibratedCm,
+        timestamp: Date.now()
+      });
+
+      // Keep only last N readings
+      if (waterLevelHistory.length > WATER_LEVEL_HISTORY_SIZE) {
+        waterLevelHistory = waterLevelHistory.slice(-WATER_LEVEL_HISTORY_SIZE);
+      }
+
+      // Step 3: Check if it's time to update the displayed value (every 2 min)
+      const now = Date.now();
+      if (now - lastWaterLevelUpdate < WATER_LEVEL_UPDATE_INTERVAL) {
+        // Not time to update yet, return cached value
+        return cachedWaterLevel;
+      }
+
+      // Step 4: Calculate median of recent readings (spike filtering)
+      if (waterLevelHistory.length < 3) {
+        // Not enough data yet, use current reading
+        cachedWaterLevel = calibratedCm;
+        lastWaterLevelUpdate = now;
+        return cachedWaterLevel;
+      }
+
+      // Get values from history and sort for median
+      const recentValues = waterLevelHistory.map(h => h.value).sort((a, b) => a - b);
+      const median = recentValues[Math.floor(recentValues.length / 2)];
+
+      // Step 5: Check if current value is a spike (too far from median)
+      const diffFromMedian = Math.abs(calibratedCm - median);
+      if (diffFromMedian > WATER_LEVEL_SPIKE_THRESHOLD) {
+        // This is a spike, ignore it and use median instead
+        cachedWaterLevel = Math.round(median * 10) / 10;
+      } else {
+        // Value is consistent, check if it's a real trend change
+        // Only update if multiple recent values show the same trend
+        const avgRecent = recentValues.reduce((a, b) => a + b, 0) / recentValues.length;
+        cachedWaterLevel = Math.round(avgRecent * 10) / 10;
+      }
+
+      lastWaterLevelUpdate = now;
+      return cachedWaterLevel;
+    }
+  },
+
+  // d7: { type: 'none' },                     // Outlet Water Temp - show actual value from sensor
+
+  // Outlet O₂ (%) - raw_value / 10, with fluctuation protection
+  // Must be higher than inlet O₂ (device produces O₂)
+  d8: {
+    type: 'formula',
+    fn: (x, allData) => {
       // If input is 0, device is OFF - show 0
       if (x === 0) return 0;
-      // Device is ON - show ambient O2 (~20.9%) with slight variation
-      const variation = ((x % 100) - 50) / 500; // Small variation ±0.1%
-      return 20.9 + variation;
+
+      // Calculate O2 as raw_value / 10
+      const rawO2 = x / 10;
+
+      // Fluctuation protection: reject values outside reasonable range (15-25%)
+      if (rawO2 < 15 || rawO2 > 25) {
+        return cachedOutletO2; // Use cached value
+      }
+
+      // Ensure outlet O2 is always slightly higher than inlet (device produces O2)
+      // Get inlet O2 for comparison
+      const inletO2Raw = allData.d16 || 209;
+      const inletO2 = inletO2Raw / 10;
+
+      // Outlet should be 0.2-0.5% higher than inlet
+      const minOutletO2 = Math.min(inletO2 + 0.2, 21.5);
+      const finalO2 = Math.max(rawO2, minOutletO2);
+
+      // Update cache with valid value
+      cachedOutletO2 = finalO2;
+      return finalO2;
     }
   },
 
@@ -474,15 +471,29 @@ const SENSOR_TRANSFORMS = {
   // d14: Hidden - Inlet Water Level not displayed
   // d15: Hidden - Inlet Water Temp not displayed
 
-  // Inlet O₂ (%) - Show ~20.9% when device is ON, 0 when OFF
+  // Inlet O₂ (%) - raw_value / 10, with fluctuation protection
+  // Must be lower than outlet O₂ (ambient air ~20.9%)
   d16: {
     type: 'formula',
     fn: (x) => {
       // If input is 0, device is OFF - show 0
       if (x === 0) return 0;
-      // Device is ON - show ambient O2 (~20.9%) with slight variation
-      const variation = ((x % 100) - 50) / 500; // Small variation ±0.1%
-      return 20.9 + variation;
+
+      // Calculate O2 as raw_value / 10
+      const rawO2 = x / 10;
+
+      // Fluctuation protection: reject values outside reasonable range (15-25%)
+      if (rawO2 < 15 || rawO2 > 25) {
+        return cachedInletO2; // Use cached value
+      }
+
+      // Inlet O2 should be around ambient (~20.9%) or slightly lower
+      // Cap at 21% to ensure it's always lower than outlet
+      const finalO2 = Math.min(rawO2, 21.0);
+
+      // Update cache with valid value
+      cachedInletO2 = finalO2;
+      return finalO2;
     }
   }
 };

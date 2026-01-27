@@ -233,26 +233,35 @@ const DashboardPage = () => {
       return;
     }
 
+    // Check date range (max 31 days)
+    const start = new Date(reportStartDate);
+    const end = new Date(reportEndDate);
+    const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    if (daysDiff > 31) {
+      setReportError('Date range cannot exceed 31 days');
+      return;
+    }
+
     setReportLoading(true);
     setReportError('');
     setReportSuccess('');
 
     try {
-      const res = await deviceAPI.getReport(reportStartDate, reportEndDate);
+      // Use the new processed report endpoint that returns clean CSV
+      const res = await deviceAPI.downloadReport(reportStartDate, reportEndDate);
 
-      if (res.data.success) {
-        // AWS API returns download link - open it in new tab
-        if (res.data.downloadUrl || res.data.url || res.data.link) {
-          const downloadUrl = res.data.downloadUrl || res.data.url || res.data.link;
-          window.open(downloadUrl, '_blank');
-          setReportSuccess('Report downloaded successfully!');
-        } else {
-          // If API returns data directly, show it
-          setReportSuccess('Report generated! Check your downloads.');
-        }
-      } else {
-        setReportError(res.data.message || 'Failed to generate report');
-      }
+      // Create blob and download
+      const blob = new Blob([res.data], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `IOCL_XtraO2_Report_${reportStartDate}_to_${reportEndDate}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      setReportSuccess('Report downloaded successfully!');
     } catch (err) {
       setReportError(err.response?.data?.message || 'Failed to generate report. Please try again.');
     } finally {
