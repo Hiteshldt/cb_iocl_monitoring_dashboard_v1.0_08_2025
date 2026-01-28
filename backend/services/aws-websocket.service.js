@@ -120,7 +120,13 @@ class AWSWebSocketService {
       await calculationsService.waitForInit();
 
       // =====================================================================
-      // STEP 1: Transform raw sensor data BEFORE any calculations
+      // STEP 1: Store raw data BEFORE transformation (for calibration)
+      // This preserves original sensor values (0-4095 range) for pH calibration
+      // =====================================================================
+      cacheService.updateRawData({ ...data });
+
+      // =====================================================================
+      // STEP 2: Transform raw sensor data BEFORE any calculations
       // This applies all configured transformations (offset, scale, etc.)
       // =====================================================================
       const transformedData = dataTransformer.transformSensorData(data);

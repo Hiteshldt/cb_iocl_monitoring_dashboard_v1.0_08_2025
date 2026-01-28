@@ -2,12 +2,12 @@
   "ph": {
     "type": "2-point",
     "points": [
-      { "ph": 4.0, "raw": 1672, "timestamp": "2026-01-28T00:00:00.000Z" },
-      { "ph": 7.0, "raw": 2371, "timestamp": "2026-01-28T00:00:00.000Z" }
+      { "ph": 4.0, "raw": 1588, "timestamp": "2026-01-28T00:00:00.000Z" },
+      { "ph": 7.0, "raw": 2353, "timestamp": "2026-01-28T00:00:00.000Z" }
     ],
     "coefficients": {
-      "slope": 0.00429,
-      "offset": -3.17
+      "slope": 0.003922,
+      "offset": -2.2275
     },
     "calibratedAt": "2026-01-28T00:00:00.000Z",
     "isDefault": true

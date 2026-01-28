@@ -18,17 +18,17 @@ const CALIBRATION_PASSWORD = 'iocl4545';
 const CALIBRATION_FILE = path.join(__dirname, '../data/calibration.json');
 
 // Default calibration based on initial readings
-// pH 4 = raw ~1672, pH 7 = raw ~2371
+// pH 4 = raw 1588, pH 7 = raw 2353
 const DEFAULT_CALIBRATION = {
   ph: {
     type: '2-point',
     points: [
-      { ph: 4.0, raw: 1672, timestamp: new Date().toISOString() },
-      { ph: 7.0, raw: 2371, timestamp: new Date().toISOString() }
+      { ph: 4.0, raw: 1588, timestamp: new Date().toISOString() },
+      { ph: 7.0, raw: 2353, timestamp: new Date().toISOString() }
     ],
     coefficients: {
-      slope: 0.00429,  // (7-4)/(2371-1672)
-      offset: -3.17    // 4 - (0.00429 * 1672)
+      slope: 0.003922,  // (7-4)/(2353-1588)
+      offset: -2.2275   // 4 - (0.003922 * 1588)
     },
     calibratedAt: new Date().toISOString(),
     isDefault: true
@@ -112,13 +112,14 @@ class CalibrationService {
 
   /**
    * Get raw pH sensor value from cache
-   * Returns the raw d5 value before any transformation
+   * Returns the raw d5 value before any transformation (0-4095 range)
    * @returns {Object} - Raw value and stability info
    */
   getRawPhValue() {
-    const latestData = cacheService.getLatestData();
+    // Get RAW data (before transformation) - this is the original sensor value
+    const rawData = cacheService.getRawData();
 
-    if (!latestData) {
+    if (!rawData) {
       return {
         success: false,
         message: 'No sensor data available',
@@ -127,8 +128,8 @@ class CalibrationService {
     }
 
     // d5 is the pH sensor - get the RAW value before transformation
-    // The raw value should be in the original data from AWS
-    const rawValue = latestData.d5;
+    // This should be in the 0-4095 range from the ADC
+    const rawValue = rawData.d5;
 
     return {
       success: true,

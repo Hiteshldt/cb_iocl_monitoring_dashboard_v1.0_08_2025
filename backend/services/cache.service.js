@@ -3,7 +3,8 @@ const fileStorage = require('../utils/fileStorage');
 
 class CacheService {
   constructor() {
-    this.latestData = null;
+    this.latestData = null;      // Transformed data
+    this.rawData = null;         // Raw data before transformation (for calibration)
     this.processedData = null;
     this.lastUpdate = null;
     this.isOnline = false;
@@ -88,10 +89,27 @@ class CacheService {
   }
 
   /**
-   * Get cached data
+   * Update raw data (before transformation)
+   * Used for calibration where we need the original sensor values
+   */
+  updateRawData(data) {
+    this.rawData = data;
+    logger.debug('Cache updated with raw data');
+  }
+
+  /**
+   * Get cached data (transformed)
    */
   getLatestData() {
     return this.latestData;
+  }
+
+  /**
+   * Get raw data (before transformation)
+   * Used for calibration
+   */
+  getRawData() {
+    return this.rawData;
   }
 
   /**

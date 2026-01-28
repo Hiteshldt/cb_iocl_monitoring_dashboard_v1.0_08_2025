@@ -43,6 +43,10 @@ const WATER_LEVEL_UPDATE_INTERVAL = 2 * 60 * 1000;  // 2 minutes in ms
 const WATER_LEVEL_HISTORY_SIZE = 12; // Store 12 readings (~2 min at 10s intervals)
 const WATER_LEVEL_SPIKE_THRESHOLD = 5; // Ignore changes > 5cm from median
 
+// pH value averaging - store last 3 readings and display average
+let phReadingsHistory = [];          // Store last 3 pH readings for averaging
+const PH_HISTORY_SIZE = 3;           // Average 3 readings for display
+
 // AQI calculation weights
 // Using 100% sensor data since external APIs (WAQI, aqi.in) are unreliable
 const EXTERNAL_AQI_WEIGHT = 0.00; // 0% from external (APIs not working for India)
@@ -297,14 +301,35 @@ const SENSOR_TRANSFORMS = {
 
   // Outlet pH - Calibrated using 2-point or 3-point calibration
   // Uses calibration service for dynamic calibration from frontend
+  // Averages last 3 readings for smoother display
   d5: {
     type: 'formula',
     fn: (x) => {
       // If input is 0, device is OFF - show 0
       if (x === 0) return 0;
+
       // Apply calibration from calibration service
       // Formula: pH = (raw * slope) + offset
-      return calibrationService.applyCalibration(x);
+      const calibratedPh = calibrationService.applyCalibration(x);
+
+      // Add to history for averaging
+      phReadingsHistory.push(calibratedPh);
+
+      // Keep only last N readings
+      if (phReadingsHistory.length > PH_HISTORY_SIZE) {
+        phReadingsHistory = phReadingsHistory.slice(-PH_HISTORY_SIZE);
+      }
+
+      // If we don't have enough readings yet, return current value
+      if (phReadingsHistory.length < PH_HISTORY_SIZE) {
+        return calibratedPh;
+      }
+
+      // Calculate average of last 3 readings
+      const avgPh = phReadingsHistory.reduce((sum, val) => sum + val, 0) / phReadingsHistory.length;
+
+      // Round to 1 decimal place
+      return Math.round(avgPh * 10) / 10;
     }
   },
 
