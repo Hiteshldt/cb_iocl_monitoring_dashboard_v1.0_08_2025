@@ -69,4 +69,20 @@ export const automationAPI = {
   getStatus: () => api.get('/automation/status'),
 };
 
+// Calibration API
+export const calibrationAPI = {
+  // Verify calibration password
+  verifyPassword: (password) => api.post('/calibration/ph/verify-password', { password }),
+  // Get current calibration status
+  getStatus: () => api.get('/calibration/ph/status'),
+  // Get raw pH sensor value (for calibration capture)
+  getRawValue: () => api.get('/calibration/ph/raw-value'),
+  // Test calibration with a raw value
+  testCalibration: (rawValue) => api.post('/calibration/ph/test', { rawValue }),
+  // Save new calibration
+  saveCalibration: (password, type, points) => api.post('/calibration/ph/save', { password, type, points }),
+  // Reset calibration to default
+  resetCalibration: (password) => api.post('/calibration/ph/reset', { password }),
+};
+
 export default api;

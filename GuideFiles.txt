@@ -1,2 +1,4 @@
 TO configure the LED Screen:
-1. Configure your laptop to work
+1. Configure your laptop to work as wifi:
+    SSID: Airtel_Banyan_24G
+    PASS: 7708665003_Ban

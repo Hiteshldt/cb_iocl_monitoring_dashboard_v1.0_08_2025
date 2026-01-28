@@ -1,5 +1,7 @@
-import { Thermometer, Droplets, Wind, Activity } from 'lucide-react';
+import { useState } from 'react';
+import { Thermometer, Droplets, Wind, Activity, Settings2 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import PhCalibrationModal from './PhCalibrationModal';
 
 // Sensor Labels based on actual device mapping:
 // d1-d8 = Outlet (Inside Device)
@@ -24,6 +26,7 @@ const SENSOR_LABELS = {
 
 const SensorDisplay = ({ data, deviceStatus = {} }) => {
   const { isDark } = useTheme();
+  const [isCalibrationModalOpen, setIsCalibrationModalOpen] = useState(false);
 
   // Check if device is offline
   // Only show offline if we have confirmed status (hasData is defined) and device is not online
@@ -56,6 +59,7 @@ const SensorDisplay = ({ data, deviceStatus = {} }) => {
           if (value === undefined || value === null) return null;
 
           const Icon = config.icon;
+          const isPh = key === 'd5';
 
           return (
             <div
@@ -73,7 +77,20 @@ const SensorDisplay = ({ data, deviceStatus = {} }) => {
                 <span className={`text-xs font-mono font-medium ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
                   {key.toUpperCase()}
                 </span>
-                <Icon className={`w-3.5 h-3.5 ${iconColor}`} />
+                <div className="flex items-center space-x-1">
+                  {isPh && (
+                    <button
+                      onClick={() => setIsCalibrationModalOpen(true)}
+                      className={`p-0.5 rounded transition ${
+                        isDark ? 'hover:bg-slate-600' : 'hover:bg-gray-200'
+                      }`}
+                      title="Calibrate pH Sensor"
+                    >
+                      <Settings2 className={`w-3.5 h-3.5 ${isDark ? 'text-slate-400 hover:text-iocl-orange' : 'text-gray-500 hover:text-iocl-orange'}`} />
+                    </button>
+                  )}
+                  <Icon className={`w-3.5 h-3.5 ${iconColor}`} />
+                </div>
               </div>
 
               {/* Value */}
@@ -125,6 +142,12 @@ const SensorDisplay = ({ data, deviceStatus = {} }) => {
         {renderSensorGroup('Inlet Sensors (Outside)', inletSensors, 'bg-iocl-orange', 'text-iocl-orange')}
         {renderSensorGroup('Outlet Sensors (Inside)', outletSensors, 'bg-iocl-blue', 'text-iocl-blue')}
       </div>
+
+      {/* pH Calibration Modal */}
+      <PhCalibrationModal
+        isOpen={isCalibrationModalOpen}
+        onClose={() => setIsCalibrationModalOpen(false)}
+      />
     </div>
   );
 };
