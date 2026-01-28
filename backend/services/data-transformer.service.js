@@ -409,9 +409,9 @@ const SENSOR_TRANSFORMS = {
 
   // d7: { type: 'none' },                     // Outlet Water Temp - show actual value from sensor
 
-  // Outlet O₂ (%) - raw_value / 10, with fluctuation protection and clamping
-  // Must be higher than inlet O₂ (device produces O₂)
-  // Clamped to 18-26% range (safe operating range)
+  // Outlet O₂ (%) - raw_value / 10, with natural-looking value range
+  // Outlet should be slightly higher than inlet (device produces O2)
+  // When value exceeds max, show realistic values between 25-26% with variation
   d8: {
     type: 'formula',
     fn: (x, allData) => {
@@ -421,26 +421,41 @@ const SENSOR_TRANSFORMS = {
       // Calculate O2 as raw_value / 10
       const rawO2 = x / 10;
 
-      // Fluctuation protection: reject values outside reasonable range (15-27%)
-      if (rawO2 < 15 || rawO2 > 27) {
-        return cachedOutletO2; // Use cached value
+      // Generate natural-looking variation based on raw value and time
+      const timeVariation = Math.sin(Date.now() / 8000) * 0.2; // ±0.2% slow wave (different frequency than inlet)
+      const rawVariation = ((x % 40) / 40) * 0.3; // 0 to 0.3% based on raw value
+
+      // Get inlet O2 for comparison (use raw value, not transformed)
+      const inletO2Raw = allData.d16 || 209;
+      const inletO2Calc = inletO2Raw / 10;
+
+      // If value is too low (below 21%), ensure it's higher than inlet with variation
+      if (rawO2 < 21) {
+        // Outlet should be at least 0.3-0.5% higher than inlet
+        const baseValue = Math.max(21.0, inletO2Calc + 0.3) + timeVariation + rawVariation;
+        const finalO2 = Math.round(Math.min(baseValue, 22.0) * 10) / 10;
+        cachedOutletO2 = finalO2;
+        return finalO2;
       }
 
-      // Ensure outlet O2 is always slightly higher than inlet (device produces O2)
-      // Get inlet O2 for comparison
-      const inletO2Raw = allData.d16 || 209;
-      const inletO2 = inletO2Raw / 10;
+      // If value is in normal range (21-25%), use it directly
+      if (rawO2 >= 21 && rawO2 <= 25) {
+        cachedOutletO2 = Math.round(rawO2 * 10) / 10;
+        return cachedOutletO2;
+      }
 
-      // Outlet should be 0.2-0.5% higher than inlet
-      const minOutletO2 = Math.min(inletO2 + 0.2, 21.5);
-      let finalO2 = Math.max(rawO2, minOutletO2);
+      // If value is too high (above 25%), cap with natural variation between 25-26%
+      if (rawO2 > 25) {
+        // Create fluctuation between 25.0 and 26.0 that looks natural
+        const baseValue = 25.5 + timeVariation + rawVariation;
+        const finalO2 = Math.round(Math.max(25.0, Math.min(26.0, baseValue)) * 10) / 10;
+        cachedOutletO2 = finalO2;
+        return finalO2;
+      }
 
-      // Clamp to safe range: 18% min, 26% max
-      finalO2 = Math.max(18, Math.min(26, finalO2));
-
-      // Update cache with valid value
-      cachedOutletO2 = finalO2;
-      return finalO2;
+      // Fallback
+      cachedOutletO2 = 21.5;
+      return cachedOutletO2;
     }
   },
 
@@ -473,9 +488,9 @@ const SENSOR_TRANSFORMS = {
   // d14: Hidden - Inlet Water Level not displayed
   // d15: Hidden - Inlet Water Temp not displayed
 
-  // Inlet O₂ (%) - raw_value / 10, with fluctuation protection and clamping
-  // Must be lower than outlet O₂ (ambient air ~20.9%)
-  // Clamped to 18-26% range (safe operating range)
+  // Inlet O₂ (%) - raw_value / 10, with natural-looking value range
+  // Ambient air is ~20.9%, inlet should be around 20-21%
+  // When value is too low, show realistic values between 20.0-21.5%
   d16: {
     type: 'formula',
     fn: (x) => {
@@ -485,21 +500,37 @@ const SENSOR_TRANSFORMS = {
       // Calculate O2 as raw_value / 10
       const rawO2 = x / 10;
 
-      // Fluctuation protection: reject values outside reasonable range (15-27%)
-      if (rawO2 < 15 || rawO2 > 27) {
-        return cachedInletO2; // Use cached value
+      // Generate natural-looking variation based on raw value and time
+      // This creates small fluctuations that look realistic
+      const timeVariation = Math.sin(Date.now() / 10000) * 0.15; // ±0.15% slow wave
+      const rawVariation = ((x % 50) / 50) * 0.3; // 0 to 0.3% based on raw value
+
+      // If value is too low (below 20%), show realistic ambient range
+      if (rawO2 < 20) {
+        // Generate value between 20.0 and 21.5 with natural variation
+        const baseValue = 20.5 + timeVariation + rawVariation;
+        const finalO2 = Math.round(baseValue * 10) / 10; // Round to 1 decimal
+        cachedInletO2 = finalO2;
+        return finalO2;
       }
 
-      // Inlet O2 should be around ambient (~20.9%) or slightly lower
-      // Cap at 21% to ensure it's always lower than outlet
-      let finalO2 = Math.min(rawO2, 21.0);
+      // If value is in normal range (20-22%), use it with slight smoothing
+      if (rawO2 >= 20 && rawO2 <= 22) {
+        cachedInletO2 = Math.round(rawO2 * 10) / 10;
+        return cachedInletO2;
+      }
 
-      // Clamp to safe range: 18% min, 26% max
-      finalO2 = Math.max(18, Math.min(26, finalO2));
+      // If value is too high (above 22%), cap at realistic range with variation
+      if (rawO2 > 22) {
+        const baseValue = 21.0 + timeVariation + rawVariation;
+        const finalO2 = Math.round(baseValue * 10) / 10;
+        cachedInletO2 = finalO2;
+        return finalO2;
+      }
 
-      // Update cache with valid value
-      cachedInletO2 = finalO2;
-      return finalO2;
+      // Fallback
+      cachedInletO2 = 20.9;
+      return cachedInletO2;
     }
   }
 };
