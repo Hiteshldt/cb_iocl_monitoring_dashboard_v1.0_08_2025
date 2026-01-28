@@ -15,6 +15,7 @@
  */
 
 const logger = require('../utils/logger');
+const calibrationService = require('./calibration.service');
 
 // ============================================================================
 // FARIDABAD WEATHER & AQI CACHE
@@ -294,15 +295,16 @@ const SENSOR_TRANSFORMS = {
   // Outlet Water Temperature (°C) - Show actual sensor value
   // d7: { type: 'none' },  // Use raw sensor value directly
 
-  // Outlet pH - Keep around 6.9 to 7.1 (neutral range)
+  // Outlet pH - Calibrated using 2-point or 3-point calibration
+  // Uses calibration service for dynamic calibration from frontend
   d5: {
     type: 'formula',
     fn: (x) => {
       // If input is 0, device is OFF - show 0
       if (x === 0) return 0;
-      // Generate pH value between 6.9 and 7.1 with small variation
-      const variation = ((x % 100) / 100) * 0.2; // 0 to 0.2 variation
-      return 6.9 + variation;
+      // Apply calibration from calibration service
+      // Formula: pH = (raw * slope) + offset
+      return calibrationService.applyCalibration(x);
     }
   },
 

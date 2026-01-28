@@ -19,6 +19,7 @@ const authRoutes = require('./routes/auth.routes');
 const deviceRoutes = require('./routes/device.routes');
 const relayRoutes = require('./routes/relay.routes');
 const automationRoutes = require('./routes/automation.routes');
+const calibrationRoutes = require('./routes/calibration.routes');
 
 // Initialize Express app
 const app = express();
@@ -49,6 +50,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/device', deviceRoutes);
 app.use('/api/relay', relayRoutes);
 app.use('/api/automation', automationRoutes);
+app.use('/api/calibration', calibrationRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
